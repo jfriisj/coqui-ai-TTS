@@ -243,9 +243,20 @@ class Bark(BaseTTS):
             speaker = speaker_id
             warn_synthesize_speaker_id_deprecated()
         history_prompt = None, None, None
-        if speaker_wav is not None or speaker is not None:
+        
+        # Handle Bark-specific speakers
+        if speaker == "random":
+            # For random speaker, don't use any voice cloning - let Bark generate random voice
+            history_prompt = None, None, None
+        elif speaker == "clone" and speaker_wav is not None:
+            # For clone speaker with audio provided, use voice cloning
             voice = self.clone_voice(speaker_wav, speaker, voice_dir)
             history_prompt = (voice["semantic_prompt"], voice["coarse_prompt"], voice["fine_prompt"])
+        elif speaker_wav is not None or (speaker is not None and speaker not in ["random", "clone"]):
+            # For other speakers or when speaker_wav is provided
+            voice = self.clone_voice(speaker_wav, speaker, voice_dir)
+            history_prompt = (voice["semantic_prompt"], voice["coarse_prompt"], voice["fine_prompt"])
+        
         outputs = self.generate_audio(text, history_prompt=history_prompt, **kwargs)
         return {
             "wav": outputs[0],

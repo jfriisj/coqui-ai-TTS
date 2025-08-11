@@ -26,8 +26,8 @@ const MODEL_MANAGEMENT_CONFIG = {
   /** Default timeout for model loading operations (5 minutes) */
   MODEL_LOADING_TIMEOUT: 5 * 60 * 1000,
   
-  /** Polling interval for status updates (2 seconds) */
-  STATUS_POLLING_INTERVAL: 2000,
+  /** Polling interval for status updates (5 seconds - reduced from 2 to avoid connection issues) */
+  STATUS_POLLING_INTERVAL: 5000,
   
   /** Model metadata cache duration (30 minutes) */
   CACHE_DURATION: 30 * 60 * 1000,

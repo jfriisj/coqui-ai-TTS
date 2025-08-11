@@ -11,4 +11,8 @@ services:
       - "5002:5002"
     environment:
       - DEVICE=cuda
+      - COQUI_TOS_AGREED=1
+      - PYTHONUNBUFFERED=1
     command: ["python3", "TTS/server/server.py", "--device", "cuda" ]
+    stdin_open: false
+    tty: false

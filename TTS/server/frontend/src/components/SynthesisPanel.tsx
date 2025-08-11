@@ -523,11 +523,13 @@ export function SynthesisPanel({
   const layout = getPanelLayout();
   const synthesisRequest = buildSynthesisRequest(panelState);
   
-  // Check if advanced features are available
-  const hasVoiceCloning = showAdvancedOptions;
-  const hasSpeakerSelection = showAdvancedOptions;
-  // Show language selection if model is multilingual OR advanced options are enabled
-  const hasLanguageSelection = showAdvancedOptions || panelState.selectedModel.info?.capabilities.multi_lingual;
+  // Check if advanced features are available based on model capabilities
+  const modelCapabilities = panelState.selectedModel.info?.capabilities;
+  const hasVoiceCloning = showAdvancedOptions && (modelCapabilities?.voice_cloning ?? true);
+  const hasSpeakerSelection = showAdvancedOptions && (modelCapabilities?.multi_speaker ?? false) && 
+    panelState.availableOptions.speakers.length > 1;
+  const hasLanguageSelection = showAdvancedOptions && (modelCapabilities?.multi_lingual ?? false) && 
+    panelState.availableOptions.languages.length > 1;
   const hasModelSelection = showModelSelection;
 
   return (
@@ -600,7 +602,9 @@ export function SynthesisPanel({
         className="panel-content"
         style={{
           display: 'grid',
-          gridTemplateColumns: layout.columns === 2 ? 'minmax(0, 1fr) minmax(0, 400px)' : '1fr',
+          gridTemplateColumns: layout.columns === 2 && showAdvancedOptions && (hasSpeakerSelection || hasLanguageSelection || hasVoiceCloning)
+            ? 'minmax(0, 1fr) minmax(0, 400px)' 
+            : '1fr',
           gap: layout.gap,
           alignItems: 'start',
         }}
@@ -653,7 +657,7 @@ export function SynthesisPanel({
         </div>
 
         {/* Right Column: Advanced Options */}
-        {showAdvancedOptions && (
+        {showAdvancedOptions && (hasSpeakerSelection || hasLanguageSelection || hasVoiceCloning) && (
           <div 
             className="options-column"
             style={{
@@ -759,6 +763,43 @@ export function SynthesisPanel({
                 </p>
               </div>
             )}
+
+            {/* No Options Available Message */}
+            {!hasSpeakerSelection && !hasLanguageSelection && !hasVoiceCloning && (
+              <div style={{
+                padding: '1rem',
+                backgroundColor: theme.mode === 'dark' 
+                  ? 'rgba(75, 85, 99, 0.1)' 
+                  : 'rgba(107, 114, 128, 0.05)',
+                border: `1px solid ${theme.mode === 'dark' ? 'rgba(75, 85, 99, 0.2)' : 'rgba(107, 114, 128, 0.1)'}`,
+                borderRadius: '8px',
+                textAlign: 'center',
+              }}>
+                <div style={{
+                  fontSize: '2rem',
+                  marginBottom: '0.5rem',
+                }}>
+                  🎤
+                </div>
+                <h3 style={{
+                  margin: '0 0 0.5rem 0',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: theme.colors.text,
+                }}>
+                  Single Voice Model
+                </h3>
+                <p style={{
+                  margin: 0,
+                  fontSize: '0.75rem',
+                  color: theme.colors.textSecondary,
+                  lineHeight: '1.4',
+                }}>
+                  This model uses a single voice and language.
+                  {hasModelSelection && ' Try selecting a different model for more voice options.'}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -818,6 +859,9 @@ export function SynthesisPanel({
               {hasSpeakerSelection && <li>Preview different speakers to find the perfect voice for your content</li>}
               {hasLanguageSelection && <li>Select the appropriate language for optimal text processing</li>}
               {hasVoiceCloning && <li>For voice cloning, use clear, high-quality audio samples (5-30 seconds)</li>}
+              {!hasSpeakerSelection && !hasLanguageSelection && !hasVoiceCloning && (
+                <li>This model provides consistent, high-quality speech synthesis with a single voice</li>
+              )}
             </ul>
           </div>
         </div>

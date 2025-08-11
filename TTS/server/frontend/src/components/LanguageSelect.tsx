@@ -172,7 +172,7 @@ export function LanguageSelect({
   enabled = true,
   showHints = true,
   className = "",
-}: LanguageSelectProps): JSX.Element {
+}: LanguageSelectProps): JSX.Element | null {
   const { theme } = useTheme();
   
   const [selectState, setSelectState] = useState<LanguageSelectState>({
@@ -277,9 +277,9 @@ export function LanguageSelect({
   const hasError = selectionState === SELECTION_STATES.ERROR;
   const isEmpty = selectionState === SELECTION_STATES.EMPTY;
   
-  // Don't render if model doesn't support multiple languages and only has single language
-  if (isEmpty || (!hasMultipleLanguages && languages.length === 1 && languages[0].code === 'en')) {
-    return <div style={{ display: 'none' }} />; // Hidden component
+  // Don't render if model doesn't support multiple languages or only has single default language
+  if (isEmpty || (!hasMultipleLanguages && languages.length <= 1)) {
+    return null; // Return null instead of hidden div for better React rendering
   }
   
   return (

@@ -194,7 +194,7 @@ export function SpeakerSelect({
   showPreview = true,
   previewText = PREVIEW_CONFIG.DEFAULT_TEXT,
   className = "",
-}: SpeakerSelectProps): JSX.Element {
+}: SpeakerSelectProps): JSX.Element | null {
   const { theme } = useTheme();
   
   const [selectState, setSelectState] = useState<SpeakerSelectState>({
@@ -466,9 +466,9 @@ export function SpeakerSelect({
   const hasError = selectionState === SELECTION_STATES.ERROR;
   const isEmpty = selectionState === SELECTION_STATES.EMPTY;
   
-  // Don't render if model doesn't support multiple speakers and only has default
-  if (isEmpty || (!hasMultipleSpeakers && selectedSpeakerInfo?.id === 'default')) {
-    return <div style={{ display: 'none' }} />; // Hidden component
+  // Don't render if model doesn't support multiple speakers or only has default speaker
+  if (isEmpty || !hasMultipleSpeakers || (speakers.length === 1 && speakers[0].id === 'default')) {
+    return null; // Return null instead of hidden div for better React rendering
   }
   
   return (

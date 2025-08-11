@@ -386,11 +386,13 @@ export class ApiClient {
     config?: RequestConfig
   ): Promise<ApiResponse<AudioGeneration>> {
     const synthesisData = { ...DEFAULT_SYNTHESIS_OPTIONS, ...request };
+    // Use longer timeout for TTS synthesis (Bark can take 2-3 minutes)
+    const ttsConfig = { timeout: 300000, ...config }; // 5 minutes
     return this.makeRequest<AudioGeneration>(
       API_ENDPOINTS.TTS,
       'POST',
       synthesisData,
-      config
+      ttsConfig
     );
   }
 
@@ -406,11 +408,13 @@ export class ApiClient {
     config?: RequestConfig
   ): Promise<ApiResponse<AudioGeneration>> {
     const synthesisData = { ...DEFAULT_SYNTHESIS_OPTIONS, ...request };
+    // Use longer timeout for TTS synthesis (Bark can take 2-3 minutes)
+    const ttsConfig = { timeout: 300000, ...config }; // 5 minutes
     return this.makeRequest<AudioGeneration>(
       API_ENDPOINTS.TTS_V1,
       'POST',
       synthesisData,
-      config
+      ttsConfig
     );
   }
 
@@ -441,6 +445,26 @@ export class ApiClient {
    */
   async getModels(config?: RequestConfig): Promise<ApiResponse<ModelInfo>> {
     return this.makeRequest<ModelInfo>(API_ENDPOINTS.MODELS, 'GET', undefined, config);
+  }
+
+  /**
+   * Get speakers for the current model
+   * 
+   * @param config - Request configuration options
+   * @returns Model speakers response or error
+   */
+  async getModelSpeakers(config?: RequestConfig): Promise<ApiResponse<{ model_name: string; speakers: string[] }>> {
+    return this.makeRequest<{ model_name: string; speakers: string[] }>(API_ENDPOINTS.MODEL_SPEAKERS, 'GET', undefined, config);
+  }
+
+  /**
+   * Get languages for the current model
+   * 
+   * @param config - Request configuration options
+   * @returns Model languages response or error
+   */
+  async getModelLanguages(config?: RequestConfig): Promise<ApiResponse<{ model_name: string; languages: string[] }>> {
+    return this.makeRequest<{ model_name: string; languages: string[] }>(API_ENDPOINTS.MODEL_LANGUAGES, 'GET', undefined, config);
   }
 
   /**

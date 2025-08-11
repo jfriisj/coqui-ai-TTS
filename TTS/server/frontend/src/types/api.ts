@@ -196,6 +196,8 @@ export const API_ENDPOINTS = {
   
   // Model management
   MODELS: '/api/v1/models',
+  MODEL_SPEAKERS: '/api/v1/models/speakers',
+  MODEL_LANGUAGES: '/api/v1/models/languages',
   HEALTH: '/api/v1/health',
   
   // Voice conversion

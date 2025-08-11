@@ -1091,9 +1091,9 @@ def api_v1_models_current(request: Request):
         # Get capabilities from TTS instance
         tts_instance = model_state.tts_instance
         capabilities = {
-            "multiSpeaker": model_state.is_multi_speaker,
-            "multiLingual": model_state.is_multi_lingual,
-            "voiceCloning": (
+            "multi_speaker": model_state.is_multi_speaker,
+            "multi_lingual": model_state.is_multi_lingual,
+            "voice_cloning": (
                 hasattr(tts_instance.synthesizer, 'tts_config') and
                 hasattr(tts_instance.synthesizer.tts_config, 'supports_cloning') and
                 tts_instance.synthesizer.tts_config.supports_cloning
@@ -1270,6 +1270,235 @@ def api_v1_models_cancel(request: Request):
     except Exception as e:
         logger.error(f"Error cancelling model loading: {e}")
         return handle_api_error(f"Failed to cancel model loading: {str(e)}", 500)
+
+
+@app.get("/api/v1/models/speakers", 
+         summary="Get model speakers",
+         description="Get available speakers for the current model")
+def api_v1_get_model_speakers(request: Request):
+    """Get available speakers for the current model"""
+    try:
+        model_state = global_model_state.current_model
+        
+        if not model_state or not model_state.tts_instance:
+            return handle_api_error("No model loaded", 404)
+        
+        speakers = []
+        model_name_lower = model_state.model_name.lower()
+        
+        # Special handling for different model types
+        if 'bark' in model_name_lower:
+            # Bark uses voice cloning and doesn't have predefined speakers
+            speakers = [
+                "random",  # Generate random voice
+                "clone"    # Use voice cloning with uploaded audio
+            ]
+        elif 'xtts' in model_name_lower:
+            # XTTS v1.1 and v2 have built-in speakers plus voice cloning
+            speakers = [
+                "Claribel Dervla", "Daisy Studious", "Gracie Wise", "Ana Florence",
+                "Rainbow Rainbow", "Libri female", "Libri male", "Briauna", "Mohegan",
+                "Santa", "Baldur", "Bruce Wayne", "Carla", "Claes", "Elisabeth", 
+                "Emma", "Florian", "Hans", "Holly", "Ijeoma", "Janet", "Jenna",
+                "Kazuhiko", "Kenji", "Klaus", "Leonidas", "Marcus", "Narrator",
+                "Niel", "Patrick", "Rosalyn", "Roy", "Samaki", "Serenity", "Sofia",
+                "Stefanie", "Victor", "Wayne", "Zora", "female_01", "female_02",
+                "female_03", "female_04", "female_05", "female_06", "female_07",
+                "female_08", "female_09", "female_10", "male_01", "male_02",
+                "male_03", "male_04", "male_05", "male_06", "male_07", "male_08",
+                "male_09", "male_10"
+            ]
+        elif 'tortoise' in model_name_lower:
+            # Tortoise uses voice cloning primarily
+            speakers = [
+                "random",  # Generate random voice
+                "clone",   # Use voice cloning with uploaded audio
+                "angie", "daniel", "deniro", "emma", "freeman", "geralt",
+                "halle", "jlaw", "lj", "mol", "pat", "pat2", "rainbow",
+                "snakes", "tim_reynolds", "tom", "train_daws", "train_dreams",
+                "train_grace", "train_lescault", "train_mouse", "weaver", "william"
+            ]
+        elif 'yourtts' in model_name_lower or 'your_tts' in model_name_lower:
+            # YourTTS supports multiple speakers
+            speakers = [
+                "female_01", "female_02", "female_03", "male_01", "male_02", "male_03",
+                "p225", "p226", "p227", "p228", "p229", "p230", "p231", "p232",
+                "p233", "p234", "p235", "p236", "p237", "p238", "p239", "p240"
+            ]
+        elif 'openvoice' in model_name_lower:
+            # OpenVoice focuses on voice cloning and conversion
+            speakers = [
+                "clone",      # Voice cloning
+                "base_v1",    # OpenVoice v1 base speaker
+                "base_v2"     # OpenVoice v2 base speaker
+            ]
+        elif 'knnvc' in model_name_lower:
+            # KNNVC is voice conversion, not TTS - uses source/target pairs
+            speakers = [
+                "source",     # Source voice for conversion
+                "target"      # Target voice for conversion
+            ]
+        # Get speakers from the model state first
+        elif model_state.speakers:
+            speakers = model_state.speakers
+        # Get speakers from the TTS instance
+        elif hasattr(model_state.tts_instance, 'speakers') and model_state.tts_instance.speakers:
+            speakers = list(model_state.tts_instance.speakers)
+        elif hasattr(model_state.tts_instance, 'speaker_manager') and model_state.tts_instance.speaker_manager:
+            # For models with speaker manager (like XTTS)
+            if hasattr(model_state.tts_instance.speaker_manager, 'speakers'):
+                speakers = list(model_state.tts_instance.speaker_manager.speakers.keys())
+        elif model_state.is_multi_speaker:
+            # Try to get from model config
+            if hasattr(model_state.tts_instance, 'config') and hasattr(model_state.tts_instance.config, 'speakers'):
+                speakers = model_state.tts_instance.config.speakers
+            else:
+                # Fallback for multi-speaker models without explicit speaker list
+                speakers = ['default']
+        else:
+            # Single speaker model
+            speakers = ['default']
+        
+        return {
+            "speakers": speakers,
+            "is_multi_speaker": model_state.is_multi_speaker,
+            "model_name": model_state.model_name
+        }
+    except Exception as e:
+        logger.error("Error getting model speakers: %s", str(e))
+        return handle_api_error(f"Failed to get speakers: {str(e)}", 500)
+
+
+@app.get("/api/v1/models/languages", 
+         summary="Get model languages",
+         description="Get available languages for the current model")
+def api_v1_get_model_languages(request: Request):
+    """Get available languages for the current model"""
+    try:
+        model_state = global_model_state.current_model
+        
+        if not model_state or not model_state.tts_instance:
+            return handle_api_error("No model loaded", 404)
+        
+        languages = []
+        model_name_lower = model_state.model_name.lower()
+        
+        # Special handling for different model types
+        if 'bark' in model_name_lower:
+            # Bark supports multiple languages through automatic detection
+            languages = [
+                'en',  # English
+                'es',  # Spanish  
+                'fr',  # French
+                'de',  # German
+                'it',  # Italian
+                'pt',  # Portuguese
+                'pl',  # Polish
+                'tr',  # Turkish
+                'ru',  # Russian
+                'nl',  # Dutch
+                'cs',  # Czech
+                'ar',  # Arabic
+                'zh',  # Chinese
+                'ja',  # Japanese
+                'hu',  # Hungarian
+                'ko'   # Korean
+            ]
+        elif 'xtts' in model_name_lower:
+            # XTTS v1.1 and v2 support 17 languages
+            languages = [
+                'en',  # English
+                'es',  # Spanish
+                'fr',  # French
+                'de',  # German
+                'it',  # Italian
+                'pt',  # Portuguese
+                'pl',  # Polish
+                'tr',  # Turkish
+                'ru',  # Russian
+                'nl',  # Dutch
+                'cs',  # Czech
+                'ar',  # Arabic
+                'zh',  # Chinese (zh-cn)
+                'ja',  # Japanese
+                'hi',  # Hindi
+                'hu',  # Hungarian
+                'ko'   # Korean
+            ]
+        elif 'tortoise' in model_name_lower:
+            # Tortoise is primarily English but can handle some other languages
+            languages = ['en']  # English only
+        elif 'yourtts' in model_name_lower or 'your_tts' in model_name_lower:
+            # YourTTS supports multiple languages
+            languages = [
+                'en',  # English
+                'es',  # Spanish
+                'fr',  # French
+                'de',  # German
+                'it',  # Italian
+                'pt'   # Portuguese
+            ]
+        elif 'openvoice' in model_name_lower:
+            # OpenVoice supports multiple languages for voice cloning
+            languages = [
+                'en',  # English
+                'es',  # Spanish
+                'fr',  # French
+                'de',  # German
+                'it',  # Italian
+                'pt',  # Portuguese
+                'pl',  # Polish
+                'tr',  # Turkish
+                'ru',  # Russian
+                'nl',  # Dutch
+                'cs',  # Czech
+                'zh',  # Chinese
+                'ja',  # Japanese
+                'ko'   # Korean
+            ]
+        elif 'knnvc' in model_name_lower:
+            # KNNVC is voice conversion - language agnostic
+            languages = [
+                'any'  # Language agnostic voice conversion
+            ]
+        # Get languages from the model state first
+        elif model_state.languages:
+            languages = model_state.languages
+        # Get languages from the TTS instance
+        elif hasattr(model_state.tts_instance, 'languages') and model_state.tts_instance.languages:
+            languages = list(model_state.tts_instance.languages)
+        elif hasattr(model_state.tts_instance, 'language_manager') and model_state.tts_instance.language_manager:
+            # For models with language manager
+            if hasattr(model_state.tts_instance.language_manager, 'languages'):
+                languages = list(model_state.tts_instance.language_manager.languages.keys())
+        elif model_state.is_multi_lingual:
+            # Try to get from model config
+            if hasattr(model_state.tts_instance, 'config') and hasattr(model_state.tts_instance.config, 'languages'):
+                languages = model_state.tts_instance.config.languages
+            else:
+                # Fallback for multi-lingual models
+                languages = ['en']
+        else:
+            # Single language model - detect from model name
+            if '/en/' in model_name_lower or 'english' in model_name_lower:
+                languages = ['en']
+            elif '/es/' in model_name_lower or 'spanish' in model_name_lower:
+                languages = ['es']
+            elif '/fr/' in model_name_lower or 'french' in model_name_lower:
+                languages = ['fr']
+            elif '/de/' in model_name_lower or 'german' in model_name_lower:
+                languages = ['de']
+            else:
+                languages = ['en']  # Default to English
+                
+        return {
+            "languages": languages,
+            "is_multi_lingual": model_state.is_multi_lingual,
+            "model_name": model_state.model_name
+        }
+    except Exception as e:
+        logger.error("Error getting model languages: %s", str(e))
+        return handle_api_error(f"Failed to get languages: {str(e)}", 500)
 
 
 @app.get("/api/v1/cache/stats", 

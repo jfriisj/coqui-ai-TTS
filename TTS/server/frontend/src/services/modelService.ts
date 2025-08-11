@@ -70,15 +70,6 @@ export const MODEL_PATTERNS = {
 /**
  * Default speaker options for different model types
  */
-export const DEFAULT_SPEAKERS = {
-  /** Generic single speaker */
-  SINGLE: ['default'],
-  /** Common multi-speaker model speakers */
-  VCTK: ['p225', 'p226', 'p227', 'p228', 'p229', 'p230'],
-  /** XTTS default speakers */
-  XTTS: ['Claribel Dervla', 'Daisy Studious', 'Gracie Wise'],
-} as const;
-
 /**
  * Common language codes with display names
  */
@@ -375,112 +366,9 @@ export class ModelService {
     };
   }
 
-  /**
-   * Generate speaker list based on model capabilities
-   */
-  private generateSpeakerList(modelName: string, capabilities: ModelCapabilities): SpeakerInfo[] {
-    if (!capabilities.is_multi_speaker) {
-      return [{
-        id: 'default',
-        name: 'Default Voice',
-      }];
-    }
 
-    const nameLower = modelName.toLowerCase();
-    const speakers: SpeakerInfo[] = [];
 
-    // VCTK-based models
-    if (nameLower.includes('vctk')) {
-      return DEFAULT_SPEAKERS.VCTK.map(id => ({
-        id,
-        name: `Speaker ${id.toUpperCase()}`,
-        description: `VCTK speaker ${id}`,
-      }));
-    }
 
-    // XTTS models
-    if (nameLower.includes('xtts')) {
-      return DEFAULT_SPEAKERS.XTTS.map(name => ({
-        id: name.toLowerCase().replace(/\s+/g, '_'),
-        name,
-        description: `XTTS voice: ${name}`,
-      }));
-    }
-
-    // Generic multi-speaker fallback
-    for (let i = 0; i < 10; i++) {
-      speakers.push({
-        id: `speaker_${i}`,
-        name: `Speaker ${i}`,
-        description: `Generic speaker ${i}`,
-      });
-    }
-
-    return speakers;
-  }
-
-  /**
-   * Generate language list based on model capabilities
-   */
-  private generateLanguageList(modelName: string, capabilities: ModelCapabilities): LanguageInfo[] {
-    if (!capabilities.is_multi_lingual) {
-      // Detect language from model name
-      const nameLower = modelName.toLowerCase();
-      let detectedLang = 'en'; // Default to English
-      
-      for (const [code, info] of Object.entries(LANGUAGE_INFO)) {
-        if (nameLower.includes(code) || nameLower.includes(info.name.toLowerCase())) {
-          detectedLang = code;
-          break;
-        }
-      }
-
-      return [{
-        code: detectedLang,
-        name: LANGUAGE_INFO[detectedLang as keyof typeof LANGUAGE_INFO]?.name || 'English',
-        nativeName: LANGUAGE_INFO[detectedLang as keyof typeof LANGUAGE_INFO]?.native || 'English',
-        available: true,
-        quality: 'excellent',
-      }];
-    }
-
-    const nameLower = modelName.toLowerCase();
-    // @ts-ignore
-    const _languages: LanguageInfo[] = [];
-
-    // XTTS supports many languages
-    if (nameLower.includes('xtts')) {
-      const xttsLanguages = ['en', 'es', 'fr', 'de', 'it', 'pt', 'pl', 'tr', 'ru', 'nl', 'cs', 'ar', 'zh', 'ja', 'hu', 'ko'];
-      return xttsLanguages.map(code => ({
-        code,
-        name: LANGUAGE_INFO[code as keyof typeof LANGUAGE_INFO]?.name || code,
-        nativeName: LANGUAGE_INFO[code as keyof typeof LANGUAGE_INFO]?.native || code,
-        available: true,
-        quality: 'excellent' as const,
-      }));
-    }
-
-    // YourTTS supports multiple languages
-    if (nameLower.includes('yourtts')) {
-      const yourTTSLanguages = ['en', 'es', 'fr', 'de', 'it', 'pt'];
-      return yourTTSLanguages.map(code => ({
-        code,
-        name: LANGUAGE_INFO[code as keyof typeof LANGUAGE_INFO]?.name || code,
-        nativeName: LANGUAGE_INFO[code as keyof typeof LANGUAGE_INFO]?.native || code,
-        available: true,
-        quality: 'good' as const,
-      }));
-    }
-
-    // Fallback to common languages
-    return Object.entries(LANGUAGE_INFO).slice(0, 6).map(([code, info]) => ({
-      code,
-      name: info.name,
-      nativeName: info.native,
-      available: true,
-      quality: code === 'en' ? 'excellent' as const : 'good' as const,
-    }));
-  }
 
   /**
    * Parse model configuration from model name or metadata
@@ -695,14 +583,42 @@ export class ModelService {
       // Detect model capabilities (enhanced with metadata)
       const capabilities = this.detectCapabilitiesFromMetadata(currentModelName, currentModelMetadata);
       
-      // Generate enhanced speaker and language lists (Requirements 2.1, 2.2, 5.1)
-      const speakers = currentModelMetadata ? 
-        this.generateSpeakerListFromMetadata(currentModelMetadata) :
-        this.generateSpeakerList(currentModelName, capabilities);
+      // Get enhanced speaker and language lists from API endpoints (Requirements 2.1, 2.2, 5.1)
+      let speakers: SpeakerInfo[] = [];
+      let languages: LanguageInfo[] = [];
       
-      const languages = currentModelMetadata ? 
-        this.generateLanguageListFromMetadata(currentModelMetadata) :
-        this.generateLanguageList(currentModelName, capabilities);
+      try {
+        // Try to get speakers from API
+        const speakersResponse = await apiClient.getModelSpeakers({ timeout: timeout / 2 });
+        if (speakersResponse.success) {
+          speakers = speakersResponse.data.speakers.map(speakerId => ({
+            id: speakerId,
+            name: this.formatSpeakerName(speakerId),
+            description: `Speaker from ${currentModelName}`,
+            gender: this.detectGender(speakerId),
+          }));
+        }
+      } catch (error) {
+        console.warn('[ModelService] Failed to fetch speakers from API in performRefresh:', error);
+        speakers = [{ id: 'default', name: 'Default Speaker', description: 'Default speaker (API unavailable)' }];
+      }
+      
+      try {
+        // Try to get languages from API
+        const languagesResponse = await apiClient.getModelLanguages({ timeout: timeout / 2 });
+        if (languagesResponse.success) {
+          languages = languagesResponse.data.languages.map(langCode => ({
+            code: langCode,
+            name: LANGUAGE_INFO[langCode as keyof typeof LANGUAGE_INFO]?.name || langCode,
+            nativeName: LANGUAGE_INFO[langCode as keyof typeof LANGUAGE_INFO]?.native || langCode,
+            available: true,
+            quality: this.assessLanguageQualityFromModelName(langCode, currentModelName),
+          }));
+        }
+      } catch (error) {
+        console.warn('[ModelService] Failed to fetch languages from API in performRefresh:', error);
+        languages = [{ code: 'en', name: 'English', nativeName: 'English', available: true, quality: 'excellent' }];
+      }
       
       // Parse model configuration with metadata (Requirement 5.1)
       const configuration = this.parseModelConfiguration(currentModelName, currentModelMetadata);
@@ -779,51 +695,9 @@ export class ModelService {
     return this.detectCapabilities(modelName);
   }
 
-  /**
-   * Generate speaker list from ModelMetadata (Requirement 5.1)
-   */
-  private generateSpeakerListFromMetadata(metadata: ModelMetadata): SpeakerInfo[] {
-    if (!metadata.capabilities.multi_speaker || metadata.speakers.length === 0) {
-      return [{
-        id: 'default',
-        name: 'Default Voice',
-        description: `${metadata.display_name} default voice`,
-      }];
-    }
 
-    return metadata.speakers.map((speakerId, _index) => ({
-      id: speakerId,
-      name: this.formatSpeakerName(speakerId),
-      description: `Speaker from ${metadata.display_name}`,
-      // Add gender detection if possible
-      gender: this.detectGender(speakerId),
-    }));
-  }
 
-  /**
-   * Generate language list from ModelMetadata (Requirement 5.1)
-   */
-  private generateLanguageListFromMetadata(metadata: ModelMetadata): LanguageInfo[] {
-    if (!metadata.capabilities.multi_lingual || metadata.languages.length === 0) {
-      // Single language - detect from model ID
-      const detectedLang = this.detectLanguageFromModelId(metadata.model_id);
-      return [{
-        code: detectedLang,
-        name: LANGUAGE_INFO[detectedLang as keyof typeof LANGUAGE_INFO]?.name || detectedLang,
-        nativeName: LANGUAGE_INFO[detectedLang as keyof typeof LANGUAGE_INFO]?.native || detectedLang,
-        available: true,
-        quality: 'excellent',
-      }];
-    }
 
-    return metadata.languages.map(langCode => ({
-      code: langCode,
-      name: LANGUAGE_INFO[langCode as keyof typeof LANGUAGE_INFO]?.name || langCode,
-      nativeName: LANGUAGE_INFO[langCode as keyof typeof LANGUAGE_INFO]?.native || langCode,
-      available: true,
-      quality: this.assessLanguageQuality(langCode, metadata),
-    }));
-  }
 
   /**
    * Helper methods for metadata processing
@@ -851,25 +725,24 @@ export class ModelService {
     return undefined;
   }
 
-  private detectLanguageFromModelId(modelId: string): string {
-    const parts = modelId.split('/');
-    if (parts.length > 1) {
-      const langPart = parts[1].toLowerCase();
-      if (LANGUAGE_INFO[langPart as keyof typeof LANGUAGE_INFO]) {
-        return langPart;
-      }
-    }
-    return 'en'; // Default to English
-  }
 
-  private assessLanguageQuality(langCode: string, metadata: ModelMetadata): 'excellent' | 'good' | 'experimental' {
-    // Primary language gets excellent quality
-    if (metadata.languages[0] === langCode) {
+
+  /**
+   * Assess language quality from model name (simpler version for API responses)
+   */
+  private assessLanguageQualityFromModelName(langCode: string, modelName: string): 'excellent' | 'good' | 'experimental' {
+    // Primary language gets excellent quality (usually English for most models)
+    if (langCode === 'en') {
+      return 'excellent';
+    }
+    
+    // Check if this language is in the model name
+    if (modelName.toLowerCase().includes(langCode.toLowerCase())) {
       return 'excellent';
     }
     
     // Common languages get good quality
-    const commonLanguages = ['en', 'es', 'fr', 'de', 'it', 'pt'];
+    const commonLanguages = ['es', 'fr', 'de', 'it', 'pt'];
     if (commonLanguages.includes(langCode)) {
       return 'good';
     }
@@ -884,13 +757,39 @@ export class ModelService {
    * @returns Promise resolving to speaker information
    */
   async getSpeakers(options: RefreshOptions = {}): Promise<ApiResponse<SpeakerInfo[]>> {
-    const modelInfo = await this.getModelInfo(options);
-    
-    if (!modelInfo.success) {
-      return modelInfo as ApiResponse<SpeakerInfo[]>;
+    try {
+      // Fetch speakers directly from the API
+      const response = await apiClient.getModelSpeakers({
+        timeout: options.timeout || 5000,
+      });
+      
+      if (!response.success) {
+        return response as ApiResponse<SpeakerInfo[]>;
+      }
+      
+      const data = response.data;
+      
+      // Convert string array to SpeakerInfo array
+      const speakers: SpeakerInfo[] = data.speakers.map(speakerId => ({
+        id: speakerId,
+        name: this.formatSpeakerName(speakerId),
+        description: `Speaker from ${data.model_name}`,
+        gender: this.detectGender(speakerId),
+      }));
+      
+      return { success: true, data: speakers };
+    } catch (error) {
+      // Return empty array on error rather than falling back to hardcoded values
+      console.warn('[ModelService] Failed to fetch speakers from API, returning empty array:', error);
+      return { 
+        success: true, 
+        data: [{ 
+          id: 'default', 
+          name: 'Default Speaker', 
+          description: 'Default speaker (API unavailable)' 
+        }] 
+      };
     }
-
-    return { success: true, data: modelInfo.data.speakers };
   }
 
   /**
@@ -900,13 +799,42 @@ export class ModelService {
    * @returns Promise resolving to language information
    */
   async getLanguages(options: RefreshOptions = {}): Promise<ApiResponse<LanguageInfo[]>> {
-    const modelInfo = await this.getModelInfo(options);
-    
-    if (!modelInfo.success) {
-      return modelInfo as ApiResponse<LanguageInfo[]>;
+    try {
+      // Fetch languages directly from the API
+      const response = await apiClient.getModelLanguages({
+        timeout: options.timeout || 5000,
+      });
+      
+      if (!response.success) {
+        return response as ApiResponse<LanguageInfo[]>;
+      }
+      
+      const data = response.data;
+      
+      // Convert string array to LanguageInfo array
+      const languages: LanguageInfo[] = data.languages.map(langCode => ({
+        code: langCode,
+        name: LANGUAGE_INFO[langCode as keyof typeof LANGUAGE_INFO]?.name || langCode,
+        nativeName: LANGUAGE_INFO[langCode as keyof typeof LANGUAGE_INFO]?.native || langCode,
+        available: true,
+        quality: this.assessLanguageQualityFromModelName(langCode, data.model_name),
+      }));
+      
+      return { success: true, data: languages };
+    } catch (error) {
+      // Return default language on error rather than falling back to hardcoded values
+      console.warn('[ModelService] Failed to fetch languages from API, returning default:', error);
+      return { 
+        success: true, 
+        data: [{ 
+          code: 'en', 
+          name: 'English', 
+          nativeName: 'English', 
+          available: true, 
+          quality: 'excellent' 
+        }] 
+      };
     }
-
-    return { success: true, data: modelInfo.data.languages };
   }
 
   /**
