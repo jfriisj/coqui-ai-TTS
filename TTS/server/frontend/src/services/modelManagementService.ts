@@ -68,7 +68,7 @@ const MODEL_ENDPOINTS = {
   CLEAR_CACHE: '/api/v1/models/cache/clear',
   
   /** Server-Sent Events stream for progress */
-  PROGRESS_STREAM: '/api/v1/models/progress',
+  PROGRESS_STREAM: '/api/v1/models/progress-stream',
 } as const;
 
 // ===== Data Model Interfaces =====
