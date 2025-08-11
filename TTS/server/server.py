@@ -54,20 +54,20 @@ class TTSRequest(BaseModel):
     language: Optional[str] = Field(None, description="Language ID for multilingual models")
     speaker_id: Optional[str] = Field(None, description="Alias for speaker")
     language_id: Optional[str] = Field(None, description="Alias for language")
-    format: str = Field("wav", description="Output audio format", regex="^(wav|mp3|opus|aac|flac|pcm)$")
+    format: str = Field("wav", description="Output audio format", pattern="^(wav|mp3|opus|aac|flac|pcm)$")
 
 
 class OpenAITTSRequest(BaseModel):
     model: str = Field("tts-1", description="Model to use (ignored, uses currently loaded model)")
     voice: str = Field(..., description="Voice ID or file path for voice cloning")
     input: str = Field(..., description="Text to synthesize", min_length=1)
-    response_format: str = Field("wav", description="Audio format", regex="^(wav|mp3|opus|aac|flac|pcm)$")
+    response_format: str = Field("wav", description="Audio format", pattern="^(wav|mp3|opus|aac|flac|pcm)$")
     speed: float = Field(1.0, description="Speed of speech", ge=0.25, le=4.0)
 
 
 class ModelLoadRequest(BaseModel):
-    modelName: str = Field(..., description="Name of the model to load")
-    forceReload: bool = Field(False, description="Force reload even if model is already loaded")
+    model_id: str = Field(..., description="Name of the model to load")
+    force_reload: bool = Field(False, description="Force reload even if model is already loaded")
 
 
 class HealthResponse(BaseModel):
@@ -232,9 +232,6 @@ def startup_health_checks():
     except Exception as e:
         logger.error(f"Component health check failed: {e}")
 
-# Run startup health checks
-startup_health_checks()
-
 # update in-use models to the specified released models.
 model_path = None
 config_path = None
@@ -254,31 +251,8 @@ if args.use_cuda:
 # CASE2: load models via GlobalModelState system
 model_name = args.model_name if args.model_path is None else None
 
-# Load initial model through GlobalModelState for consistency
-success = global_model_state.load_model(
-    model_name=model_name,
-    model_path=args.model_path,
-    config_path=args.config_path,
-    vocoder_name=args.vocoder_name,
-    vocoder_path=args.vocoder_path,
-    vocoder_config_path=args.vocoder_config_path,
-    device=device,
-    progress_bar=True,
-    speakers_file_path=args.speakers_file_path,
-)
-
-if not success:
-    logger.error("Failed to load initial model %s", model_name or args.model_path or "default")
-    sys.exit(1)
-
-# Get the loaded model for backward compatibility with use_gst
-api = global_model_state.current_model.tts_instance if global_model_state.current_model else None
-if api is None:
-    logger.error("No model loaded after initialization")
-    sys.exit(1)
-
 # TODO: set this from SpeakerManager
-use_gst = api.synthesizer.tts_config.get("use_gst", False)
+use_gst = False  # Will be set after model loads
 
 # Create FastAPI app with automatic OpenAPI documentation
 app = FastAPI(
@@ -302,6 +276,42 @@ app.add_middleware(
 # Mount static files for frontend
 if os.path.exists("static/frontend"):
     app.mount("/static", StaticFiles(directory="static/frontend"), name="static")
+
+@app.on_event("startup")
+async def startup_event():
+    """Load TTS model on server startup"""
+    global use_gst
+    
+    logger.info("Loading TTS model on startup...")
+    
+    # Perform startup health checks first
+    startup_health_checks()
+    
+    # Load initial model through GlobalModelState for consistency
+    success = await global_model_state.load_model_async(
+        model_name=model_name,
+        model_path=args.model_path,
+        config_path=args.config_path,
+        vocoder_name=args.vocoder_name,
+        vocoder_path=args.vocoder_path,
+        vocoder_config_path=args.vocoder_config_path,
+        device=device,
+        progress_bar=True,
+    )
+
+    if not success:
+        logger.error("Failed to load initial model %s", model_name or args.model_path or "default")
+        raise RuntimeError("Failed to load initial model")
+
+    # Get the loaded model for backward compatibility with use_gst
+    api = global_model_state.current_model.tts_instance if global_model_state.current_model else None
+    if api is None:
+        logger.error("No model loaded after initialization")
+        raise RuntimeError("No model loaded after initialization")
+
+    # Set use_gst from loaded model
+    use_gst = api.synthesizer.tts_config.get("use_gst", False)
+    logger.info("Model loaded successfully, use_gst: %s", use_gst)
 
 # Note: api is kept for backward compatibility with startup templates and use_gst
 # All synthesis endpoints now use global_model_state.current_model.tts_instance
@@ -332,16 +342,27 @@ def style_wav_uri_to_dict(style_wav: str) -> str | dict:
 
 @app.get("/", include_in_schema=False)
 async def index():
-    """Serve the React frontend index.html"""
+    """Serve the React frontend index.html or API info"""
     static_dir = "static/frontend"
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     else:
-        return JSONResponse(
-            {"error": "Frontend not found", "message": "Please build the frontend first"}, 
-            status_code=404
-        )
+        # Return API information instead of 404
+        return {
+            "message": "Coqui TTS Server API",
+            "version": "1.0.0",
+            "description": "Text-to-Speech server with voice cloning, multi-speaker, and multi-lingual support",
+            "docs_url": "/docs",
+            "redoc_url": "/redoc",
+            "openapi_url": "/openapi.json",
+            "endpoints": {
+                "health": "/api/v1/health",
+                "models": "/api/v1/models",
+                "tts": "/api/tts",
+                "openai_compatible": "/v1/audio/speech"
+            }
+        }
 
 
 @app.get("/legacy", include_in_schema=False)
@@ -406,7 +427,8 @@ lock = Lock()
 
 @app.api_route("/api/tts", methods=["GET", "POST"], 
                summary="Text-to-Speech Synthesis", 
-               description="Convert text to speech using the currently loaded TTS model")
+               description="Convert text to speech using the currently loaded TTS model",
+               operation_id="tts_synthesis")
 async def tts(
     request: Request,
     text: Optional[str] = Query(None, description="Text to synthesize"),
@@ -464,10 +486,27 @@ async def tts(
             logger.info("Language idx: %s", language_idx)
             logger.info("Using model: %s (synthesis_id: %s)", current_model.model_name, synthesis_id)
 
+            # Build TTS parameters based on model capabilities
+            tts_kwargs = {}
+            
+            # Only add speaker if model supports multiple speakers and speaker is provided
+            if current_model.is_multi_speaker and speaker_idx:
+                tts_kwargs["speaker"] = speaker_idx
+            
+            # Only add language if model supports multiple languages and language is provided  
+            if current_model.is_multi_lingual and language_idx:
+                tts_kwargs["language"] = language_idx
+                
+            # Add style_wav if provided and not empty
+            if style_wav:
+                tts_kwargs["style_wav"] = style_wav
+                
+            # Add speaker_wav if provided and not empty
+            if speaker_wav:
+                tts_kwargs["speaker_wav"] = speaker_wav
+
             try:
-                wavs = current_model.tts_instance.tts(
-                    text, speaker=speaker_idx, language=language_idx, style_wav=style_wav, speaker_wav=speaker_wav
-                )
+                wavs = current_model.tts_instance.tts(text, **tts_kwargs)
             except Exception as e:
                 logger.error("TTS synthesis failed: %s", str(e))
                 raise HTTPException(status_code=500, detail={"error": f"TTS synthesis failed: {str(e)}"})
@@ -533,7 +572,8 @@ async def mary_tts_api_voices():
 
 @app.api_route("/process", methods=["GET", "POST"], 
                summary="MaryTTS Compatible Process", 
-               description="MaryTTS-compatible /process endpoint")
+               description="MaryTTS-compatible /process endpoint",
+               operation_id="mary_tts_process")
 async def mary_tts_api_process(
     request: Request,
     INPUT_TEXT: Optional[str] = Query(None, description="Text to synthesize"),
@@ -580,36 +620,31 @@ async def mary_tts_api_process(
 
 
 # OpenAI-compatible Speech API
-@app.route("/v1/audio/speech", methods=["POST"])
-def openai_tts():
+@app.post("/v1/audio/speech", 
+          summary="OpenAI Compatible Speech API", 
+          description="OpenAI-compatible text-to-speech endpoint")
+async def openai_tts(request_data: OpenAITTSRequest):
     """
     POST /v1/audio/speech
-    {
-      "model": "tts-1",           # ignored, defaults to args.model_name
-      "voice": "alloy",           # required: a speaker ID or a file/folder for voice cloning
-      "input": "Hello world!",    # required text to speak
-      "response_format": "wav"    # optional: wav, opus, aac, flac, wav, pcm (alternative to format)
-    }
+    OpenAI-compatible text-to-speech endpoint
     """
     # Check if model is loaded
     current_model = global_model_state.current_model
     if not current_model or not current_model.tts_instance:
-        return {"error": "No TTS model is currently loaded"}, 503
+        raise HTTPException(status_code=503, detail={"error": "No TTS model is currently loaded"})
     
     # Create synthesis ID for tracking
-    import uuid
     synthesis_id = str(uuid.uuid4())[:8]
     
     try:
         # Register synthesis operation
         global_model_state.register_synthesis(synthesis_id)
         
-        payload = request.get_json(force=True)
-        logger.info(payload)
-        text = payload.get("input") or ""
-        speaker_idx = payload.get("voice", args.speaker_idx) if current_model.is_multi_speaker else None
-        fmt = payload.get("response_format", "mp3").lower()  # OpenAI default is .mp3
-        speed = payload.get("speed", 1.0)
+        logger.info(request_data.dict())
+        text = request_data.input
+        speaker_idx = request_data.voice if current_model.is_multi_speaker else None
+        fmt = request_data.response_format.lower()
+        speed = request_data.speed
         language_idx = args.language_idx if current_model.is_multi_lingual else None
 
         speaker_wav = None
@@ -625,8 +660,6 @@ def openai_tts():
             if voice_path.exists() and supports_cloning:
                 speaker_wav = str(voice_path) if voice_path.is_file() else [str(w) for w in voice_path.glob("*.wav")]
                 speaker_idx = None
-
-        # here we ignore payload["model"] since its loaded at startup
 
         def _save_audio(waveform, sample_rate, format_args):
             buf = io.BytesIO()
@@ -667,7 +700,7 @@ def openai_tts():
             mimetype = mimetypes.get(fmt, "audio/mpeg")
             if fmt == "wav":
                 out.seek(0)
-                return send_file(out, mimetype=mimetype)
+                return StreamingResponse(out, media_type=mimetype)
 
             format_dispatch = {
                 "mp3": lambda: _save_audio(waveform, sample_rate, {"format": "mp3"}),
@@ -679,60 +712,78 @@ def openai_tts():
 
             # Check if format is supported
             if fmt not in format_dispatch:
-                return "Unsupported format", 400
+                raise HTTPException(status_code=400, detail={"error": f"Unsupported format: {fmt}"})
 
             # Generate and send file
             audio_buffer = format_dispatch[fmt]()
-            return send_file(audio_buffer, mimetype=mimetype)
+            return StreamingResponse(audio_buffer, media_type=mimetype)
             
     finally:
         # Always unregister synthesis operation
         global_model_state.unregister_synthesis(synthesis_id)
 
 
-@app.route("/api/v1/models", methods=["GET"])
-def api_v1_models():
+@app.get("/api/v1/models", 
+         summary="List Available Models", 
+         description="Get list of all available TTS models")
+async def api_v1_models():
     try:
         models = TTS.list_models()
         return {"models": models}
     except Exception as e:
         logger.error("Error listing models: %s", str(e))
-        return {"error": f"Failed to list models: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail={"error": f"Failed to list models: {str(e)}"})
 
 
-@app.route("/api/v1/tts", methods=["POST"])
-def api_v1_tts():
+@app.post("/api/v1/tts", 
+          summary="TTS Synthesis", 
+          description="Synthesize speech from text using the advanced API")
+async def api_v1_tts(request_data: TTSRequest):
     # Check if model is loaded
     current_model = global_model_state.current_model
     if not current_model or not current_model.tts_instance:
-        return handle_api_error("No TTS model is currently loaded", 503)
+        raise HTTPException(status_code=503, detail={"error": "No TTS model is currently loaded"})
     
     # Create synthesis ID for tracking
-    import uuid
     synthesis_id = str(uuid.uuid4())[:8]
     
     try:
         # Register synthesis operation
         global_model_state.register_synthesis(synthesis_id)
         
-        data = request.get_json(force=True) or {}
-        text = data.get("text", "")
-        speaker = data.get("speaker") or data.get("speaker_id")
-        language = data.get("language") or data.get("language_id")
-        fmt = data.get("format", "wav")
+        # Get parameters from request
+        text = request_data.text
+        speaker = request_data.speaker or request_data.speaker_id
+        language = request_data.language or request_data.language_id
+        fmt = request_data.format
+        
         # Basic validation
         if not text.strip():
-            return handle_api_error("Text parameter is required", 400)
+            raise HTTPException(status_code=400, detail={"error": "Text parameter is required"})
         if len(text) > 1000:
-            return handle_api_error("Text parameter exceeds maximum length (1000)", 400)
-        # TTS synthesis logic (Task 2.2)
+            raise HTTPException(status_code=400, detail={"error": "Text parameter exceeds maximum length (1000)"})
+        
+        # Filter parameters based on model capabilities
+        tts_kwargs = {"text": text}
+        
+        # Only add speaker if model supports multiple speakers and speaker is provided
+        if current_model.is_multi_speaker and speaker:
+            tts_kwargs["speaker"] = speaker
+        
+        # Only add language if model supports multiple languages and language is provided
+        if current_model.is_multi_lingual and language:
+            tts_kwargs["language"] = language
+        
+        # TTS synthesis logic
         with lock:
             logger.info("Using model: %s (synthesis_id: %s)", current_model.model_name, synthesis_id)
+            logger.info("TTS parameters: %s", {k: v for k, v in tts_kwargs.items() if k != "text"})
             try:
-                wavs = current_model.tts_instance.tts(text, speaker=speaker, language=language)
+                wavs = current_model.tts_instance.tts(**tts_kwargs)
             except Exception as e:
                 logger.error("TTS synthesis failed: %s", str(e))
-                return handle_api_error(f"TTS synthesis failed: {str(e)}", 500)
+                raise HTTPException(status_code=500, detail={"error": f"TTS synthesis failed: {str(e)}"})
+        
         # Audio format handling based on requested format
         out_buf = io.BytesIO()
         current_model.tts_instance.synthesizer.save_wav(wavs, out_buf)
@@ -763,7 +814,7 @@ def api_v1_tts():
         mimetype = mimetypes.get(fmt, "audio/wav")
         if fmt == "wav":
             out_buf.seek(0)
-            return send_file(out_buf, mimetype=mimetype)
+            return StreamingResponse(out_buf, media_type=mimetype)
 
         format_dispatch = {
             "mp3": lambda: _save_audio(waveform, sample_rate, {"format": "mp3"}),
@@ -773,17 +824,21 @@ def api_v1_tts():
             "pcm": lambda: _save_pcm(waveform),
         }
         if fmt not in format_dispatch:
-            return handle_api_error(f"Unsupported format: {fmt}", 400)
+            raise HTTPException(status_code=400, detail={"error": f"Unsupported format: {fmt}"})
+        
         audio_buffer = format_dispatch[fmt]()
-        return send_file(audio_buffer, mimetype=mimetype)
+        return StreamingResponse(audio_buffer, media_type=mimetype)
         
     finally:
         # Always unregister synthesis operation
         global_model_state.unregister_synthesis(synthesis_id)
 
 
-@app.route("/api/v1/health", methods=["GET"])
-def api_v1_health():
+@app.get("/api/v1/health", 
+         response_model=HealthResponse,
+         summary="Health Check", 
+         description="Get comprehensive health status of the TTS server and its components")
+async def api_v1_health():
     """Health check endpoint with comprehensive model management component status"""
     try:
         current_model = global_model_state.current_model
@@ -822,7 +877,7 @@ def api_v1_health():
                     "last_refresh": registry_stats.last_refresh,
                     "refresh_count": registry_stats.refresh_count,
                     "failure_count": registry_stats.failure_count,
-                    "monitoring_active": model_registry.is_monitoring
+                    "monitoring_active": registry_stats.state.name == "MONITORING"
                 },
                 "system_resources": {
                     "memory_available_gb": round(memory.available / (1024 * 1024 * 1024), 2),
@@ -870,33 +925,34 @@ def api_v1_health():
             
         health_info["status"] = overall_status
         
-        # Set appropriate HTTP status code
-        status_code = 200
+        # Set appropriate HTTP status code based on health
         if overall_status == "error":
-            status_code = 503
-        elif overall_status in ["warning", "degraded"]:
-            status_code = 200  # Still operational
-            
-        return health_info, status_code
+            # For FastAPI, we need to raise an HTTPException for non-200 status codes
+            raise HTTPException(status_code=503, detail=health_info)
+        
+        return health_info
         
     except Exception as e:
         logger.error("Health check failed: %s", str(e))
         return handle_api_error(f"Health check failed: {str(e)}", 500)
 
 
-@app.route("/api/v1/voice-convert", methods=["POST"])
-def api_v1_voice_convert():
+@app.post("/api/v1/voice-convert", 
+          summary="Voice Conversion", 
+          description="Convert voice characteristics from source to target audio")
+async def api_v1_voice_convert(
+    source_wav: UploadFile = File(..., description="Source audio file"),
+    target_wav: UploadFile = File(..., description="Target audio file for voice characteristics")
+):
     """Voice conversion endpoint"""
     # Check if model is loaded
     current_model = global_model_state.current_model
     if not current_model or not current_model.tts_instance:
-        return handle_api_error("No TTS model is currently loaded", 503)
+        raise HTTPException(status_code=503, detail={"error": "No TTS model is currently loaded"})
     
-    source_wav_file = request.files.get("source_wav")
-    target_wav_file = request.files.get("target_wav")
-    # Basic validation
-    if not source_wav_file or not target_wav_file:
-        return handle_api_error("source_wav and target_wav files are required", 400)
+    # Basic validation  
+    if not source_wav.filename.endswith('.wav') or not target_wav.filename.endswith('.wav'):
+        raise HTTPException(status_code=400, detail={"error": "Both source_wav and target_wav must be .wav files"})
     
     # Create synthesis ID for tracking
     import uuid
@@ -949,8 +1005,10 @@ def api_v1_voice_convert():
 
 # Model Management API Routes
 
-@app.route("/api/v1/models/available", methods=["GET"])
-def api_v1_models_available():
+@app.get("/api/v1/models/available", 
+         summary="Get available models",
+         description="Get a list of all available TTS models with metadata")
+def api_v1_models_available(request: Request):
     """Get all available models with metadata and caching information."""
     try:
         # Get all models from manager
@@ -1008,21 +1066,23 @@ def api_v1_models_available():
                 logger.warning(f"Failed to get info for model {model_name}: {e}")
                 continue
         
-        return {"models": models_data}, 200
+        return {"models": models_data}
         
     except Exception as e:
         logger.error(f"Error getting available models: {e}")
         return handle_api_error(f"Failed to get available models: {str(e)}", 500)
 
 
-@app.route("/api/v1/models/current", methods=["GET"])
-def api_v1_models_current():
+@app.get("/api/v1/models/current", 
+         summary="Get current model",
+         description="Get information about the currently loaded model")
+def api_v1_models_current(request: Request):
     """Get information about the currently loaded model."""
     try:
         model_state = global_model_state.current_model
         
         if not model_state or not model_state.tts_instance:
-            return handle_api_error("No model currently loaded", 404)
+            raise HTTPException(status_code=404, detail={"error": "No model currently loaded"})
         
         # Create display name from model name
         name_parts = model_state.model_name.split('/')
@@ -1056,23 +1116,24 @@ def api_v1_models_current():
             "loadedAt": datetime.now().isoformat() + "Z"  # Current time as approximate
         }
         
-        return current_model_info, 200
+        return current_model_info
         
     except Exception as e:
         logger.error(f"Error getting current model info: {e}")
         return handle_api_error(f"Failed to get current model info: {str(e)}", 500)
 
 
-@app.route("/api/v1/models/load", methods=["POST"])
-def api_v1_models_load():
+@app.post("/api/v1/models/load",
+          summary="Load model",
+          description="Load a specific TTS model")
+def api_v1_models_load(request: Request, model_request: ModelLoadRequest):
     """Load a specific model."""
     try:
-        data = request.get_json(force=True) or {}
-        model_name = data.get("modelName")
-        force_reload = data.get("forceReload", False)
+        model_name = model_request.model_id
+        force_reload = model_request.force_reload
         
         if not model_name:
-            return handle_api_error("modelName parameter is required", 400)
+            return handle_api_error("model_id parameter is required", 400)
         
         # Validate model exists
         available_models = manager.list_models()
@@ -1091,7 +1152,7 @@ def api_v1_models_load():
                     "message": "Model loading already in progress",
                     "estimatedTime": 30,
                     "loadingId": f"load_{int(time.time())}"
-                }, 200
+                }
             else:
                 return handle_api_error("Another model is currently loading. Please wait or cancel the current operation.", 409)
         
@@ -1104,7 +1165,7 @@ def api_v1_models_load():
                 "message": "Model is already loaded",
                 "estimatedTime": 0,
                 "loadingId": f"already_loaded_{int(time.time())}"
-            }, 200
+            }
         
         # Estimate loading time based on cache status
         cached = model_name in model_cache._cache_entries
@@ -1137,15 +1198,17 @@ def api_v1_models_load():
             "message": "Model loading initiated",
             "estimatedTime": estimated_time,
             "loadingId": loading_id
-        }, 200
+        }
         
     except Exception as e:
         logger.error(f"Error initiating model load: {e}")
         return handle_api_error(f"Failed to initiate model loading: {str(e)}", 500)
 
 
-@app.route("/api/v1/models/status", methods=["GET"])
-def api_v1_models_status():
+@app.get("/api/v1/models/status", 
+         summary="Get model loading status",
+         description="Get the current status of model loading operations")
+def api_v1_models_status(request: Request):
     """Get current model loading status."""
     try:
         loading_progress = global_model_state.get_loading_progress()
@@ -1168,15 +1231,51 @@ def api_v1_models_status():
             "loadingId": f"load_{int(loading_progress.get('start_time', time.time()))}"
         }
         
-        return status_response, 200
+        return status_response
         
     except Exception as e:
         logger.error(f"Error getting loading status: {e}")
         return handle_api_error(f"Failed to get loading status: {str(e)}", 500)
 
 
-@app.route("/api/v1/cache/stats", methods=["GET"])
-def api_v1_cache_stats():
+@app.post("/api/v1/models/cancel",
+          summary="Cancel model loading",
+          description="Cancel the current model loading operation")
+def api_v1_models_cancel(request: Request):
+    """Cancel current model loading operation."""
+    try:
+        # Check if there's a loading operation to cancel
+        if not global_model_state.is_loading:
+            return {
+                "success": False,
+                "message": "No model loading operation in progress",
+                "error": "No active loading operation"
+            }
+        
+        # Attempt to cancel the loading operation
+        success = global_model_state.cancel_loading()
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Model loading cancelled successfully"
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Failed to cancel model loading",
+                "error": "Cancellation request failed"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error cancelling model loading: {e}")
+        return handle_api_error(f"Failed to cancel model loading: {str(e)}", 500)
+
+
+@app.get("/api/v1/cache/stats", 
+         summary="Get cache statistics",
+         description="Get detailed cache statistics and memory usage")
+def api_v1_cache_stats(request: Request):
     """Get detailed cache statistics."""
     try:
         cache_stats = model_cache.get_cache_stats()
@@ -1216,15 +1315,17 @@ def api_v1_cache_stats():
             "entries": cache_entries
         }
         
-        return cache_info, 200
+        return cache_info
         
     except Exception as e:
         logger.error(f"Error getting cache stats: {e}")
         return handle_api_error(f"Failed to get cache stats: {str(e)}", 500)
 
 
-@app.route("/api/v1/cache/clear", methods=["POST"])
-def api_v1_cache_clear():
+@app.post("/api/v1/cache/clear",
+          summary="Clear cache",
+          description="Clear all cached models from memory")
+def api_v1_cache_clear(request: Request):
     """Clear all cached models."""
     try:
         cleared_count = model_cache.clear_cache()
@@ -1233,15 +1334,17 @@ def api_v1_cache_clear():
             "success": True,
             "message": f"Successfully cleared {cleared_count} cached models",
             "clearedCount": cleared_count
-        }, 200
+        }
         
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
         return handle_api_error(f"Failed to clear cache: {str(e)}", 500)
 
 
-@app.route("/api/v1/cache/cleanup", methods=["POST"])
-def api_v1_cache_cleanup():
+@app.post("/api/v1/cache/cleanup", 
+          summary="Cleanup cache",
+          description="Perform LRU cache cleanup to free memory")
+def api_v1_cache_cleanup(request: Request):
     """Perform LRU cache cleanup."""
     try:
         evicted_count = model_cache.cleanup_cache()
@@ -1250,15 +1353,17 @@ def api_v1_cache_cleanup():
             "success": True,
             "message": f"Cache cleanup completed, evicted {evicted_count} entries",
             "evictedCount": evicted_count
-        }, 200
+        }
         
     except Exception as e:
         logger.error(f"Error during cache cleanup: {e}")
         return handle_api_error(f"Failed to perform cache cleanup: {str(e)}", 500)
 
 
-@app.route("/api/v1/registry/status", methods=["GET"])
-def api_v1_registry_status():
+@app.get("/api/v1/registry/status", 
+         summary="Get registry status",
+         description="Get model registry status and statistics")
+def api_v1_registry_status(request: Request):
     """Get model registry status and statistics."""
     try:
         registry_stats = model_registry.get_registry_stats()
@@ -1270,20 +1375,22 @@ def api_v1_registry_status():
             "refreshCount": registry_stats.refresh_count,
             "cacheInvalidationCount": registry_stats.cache_invalidation_count,
             "failureCount": registry_stats.failure_count,
-            "monitoringActive": model_registry.is_monitoring,
+            "monitoringActive": registry_stats.state.name == "MONITORING",
             "canRefresh": registry_stats.state.name in ["IDLE", "MONITORING", "ERROR"],
             "supportsWatchdog": model_registry._observer is not None if hasattr(model_registry, '_observer') else False
         }
         
-        return registry_info, 200
+        return registry_info
         
     except Exception as e:
         logger.error(f"Error getting registry status: {e}")
         return handle_api_error(f"Failed to get registry status: {str(e)}", 500)
 
 
-@app.route("/api/v1/registry/refresh", methods=["POST"])
-def api_v1_registry_refresh():
+@app.post("/api/v1/registry/refresh",
+          summary="Refresh registry",
+          description="Manually trigger model registry refresh")
+def api_v1_registry_refresh(request: Request):
     """Manually trigger model registry refresh."""
     try:
         # Check if refresh is possible
@@ -1298,7 +1405,7 @@ def api_v1_registry_refresh():
             return {
                 "success": True,
                 "message": "Registry refresh completed successfully"
-            }, 200
+            }
         else:
             return handle_api_error("Registry refresh failed", 500)
             
@@ -1307,8 +1414,10 @@ def api_v1_registry_refresh():
         return handle_api_error(f"Failed to refresh registry: {str(e)}", 500)
 
 
-@app.route("/api/v1/models/progress-stream", methods=["GET"])
-def api_v1_models_progress_stream():
+@app.get("/api/v1/models/progress-stream",
+         summary="Model loading progress stream",
+         description="Server-sent events endpoint for streaming model loading progress")
+def api_v1_models_progress_stream(request: Request):
     """Server-sent events endpoint for streaming model loading progress."""
     def generate_progress_events():
         """Generator function that yields server-sent events for progress updates."""
@@ -1475,9 +1584,9 @@ def api_v1_models_progress_stream():
     
     try:
         # Create response with proper SSE headers
-        response = Response(
+        return StreamingResponse(
             generate_progress_events(),
-            mimetype='text/event-stream',
+            media_type='text/event-stream',
             headers={
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
@@ -1486,33 +1595,44 @@ def api_v1_models_progress_stream():
             }
         )
         
-        return response
-        
     except Exception as e:
         logger.error(f"Error creating SSE response: {e}")
         return handle_api_error(f"Failed to create progress stream: {str(e)}", 500)
 
 
-@app.route('/<path:path>')
-def serve_frontend(path):
+@app.get('/{path:path}', include_in_schema=False)
+async def serve_frontend(path: str):
     """
     Catch-all route for client-side routing.
     Serves static assets from the frontend build, 
     or falls back to index.html for React Router.
     """
     # First try to serve static files from frontend directory
-    frontend_path = path if False else os.path.join(app.static_folder, path)
-    if os.path.isfile(frontend_path):
-        return send_from_directory(app.static_folder, path)
+    static_dir = "static/frontend"
+    file_path = os.path.join(static_dir, path)
+    
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
 
     # For any other path, return the React app's index.html to handle client-side routing
-    return send_from_directory(app.static_folder, 'index.html')
+    index_path = os.path.join(static_dir, 'index.html')
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        return JSONResponse({"error": "Frontend not found"}, status_code=404)
 
 
 def main():
     try:
-        # Use IPv4 localhost binding so proxy to 127.0.0.1:5002 works
-        app.run(debug=args.debug, host="0.0.0.0", port=args.port)
+        # Use uvicorn to run the FastAPI app
+        uvicorn.run(
+            app,  # Pass the app object directly instead of string reference
+            host="0.0.0.0", 
+            port=args.port,
+            log_level="info" if not args.debug else "debug",
+            access_log=True,
+            reload=args.debug
+        )
     finally:
         # Cleanup on server shutdown
         cleanup_server()
@@ -1525,7 +1645,8 @@ def cleanup_server():
         
         # Stop model registry monitoring
         try:
-            if model_registry.is_monitoring:
+            registry_stats = model_registry.get_registry_stats()
+            if registry_stats.state.name == "MONITORING":
                 model_registry.stop_monitoring()
                 logger.info("Model registry monitoring stopped")
         except Exception as e:

@@ -7,3 +7,11 @@ tests/outputs/*
 tests/train_outputs/*
 __pycache__/
 *.pyc
+node_modules/
+**/node_modules/
+TTS/server/frontend/node_modules/
+TTS/server/frontend/node_modules/**
+*.log
+.npm
+.yarn
+yarn-error.log
