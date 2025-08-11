@@ -1,0 +1,576 @@
+/**
+ * Test Utilities for Coqui TTS Frontend
+ * 
+ * Provides React Testing Library utilities, custom render functions, and mock implementations
+ * for testing components and hooks throughout the TTS frontend application.
+ * 
+ * Features:
+ * - Custom render function with theme and audio context providers
+ * - Mock implementations for API services
+ * - Mock audio context and Web Audio API functionality
+ * - Test data factories for generating consistent test data
+ * - Utility functions for testing async operations
+ */
+
+import React, { ReactElement, ReactNode } from 'react';
+import { render, RenderOptions } from '@testing-library/react';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { AudioProvider } from '../contexts/AudioContext';
+import {
+  SynthesisRequest,
+  AudioGeneration,
+  ModelInfo,
+  HealthResponse,
+  ApiResponse,
+  ExtendedModelInfo,
+  ThemeConfiguration,
+} from '../types/api';
+
+// ===== Test Data Factories =====
+
+/**
+ * Create mock audio blob for testing
+ */
+export const createMockAudioBlob = (
+  size: number = 1024,
+  type: string = 'audio/wav'
+): Blob => {
+  const buffer = new ArrayBuffer(size);
+  return new Blob([buffer], { type });
+};
+
+/**
+ * Create mock synthesis request
+ */
+export const createMockSynthesisRequest = (
+  overrides: Partial<SynthesisRequest> = {}
+): SynthesisRequest => ({
+  text: 'Hello, world!',
+  speaker_id: 'speaker_0',
+  language_id: 'en',
+  format: 'wav',
+  speed: 1.0,
+  ...overrides,
+});
+
+/**
+ * Create mock audio generation response
+ */
+export const createMockAudioGeneration = (
+  overrides: Partial<AudioGeneration> = {}
+): AudioGeneration => ({
+  audio: createMockAudioBlob(),
+  mimeType: 'audio/wav',
+  ...overrides,
+});
+
+/**
+ * Create mock successful API response
+ */
+export const createMockApiResponse = <T>(
+  data: T,
+  overrides: Partial<ApiResponse<T>> = {}
+): ApiResponse<T> => ({
+  success: true,
+  data,
+  ...overrides,
+});
+
+/**
+ * Create mock error API response
+ */
+export const createMockApiError = (
+  error: string = 'Test error',
+  status: number = 500
+): ApiResponse<never> => ({
+  success: false,
+  error: {
+    error,
+    status,
+  },
+});
+
+/**
+ * Create mock model info response
+ */
+export const createMockModelInfo = (
+  overrides: Partial<ModelInfo> = {}
+): ModelInfo => ({
+  models: [
+    'tts_models/en/ljspeech/tacotron2-DDC',
+    'tts_models/en/vctk/vits',
+    'tts_models/en/jenny/jenny',
+  ],
+  ...overrides,
+});
+
+/**
+ * Create mock health response
+ */
+export const createMockHealthResponse = (
+  overrides: Partial<HealthResponse> = {}
+): HealthResponse => ({
+  status: 'healthy',
+  model_loaded: true,
+  ...overrides,
+});
+
+/**
+ * Create mock extended model info
+ */
+export const createMockExtendedModelInfo = (
+  overrides: Partial<ExtendedModelInfo> = {}
+): ExtendedModelInfo => ({
+  model_name: 'test_model',
+  available_models: ['model1', 'model2'],
+  is_multi_speaker: true,
+  is_multi_lingual: false,
+  supports_cloning: true,
+  speakers: ['speaker_0', 'speaker_1'],
+  languages: ['en'],
+  use_gst: false,
+  ...overrides,
+});
+
+/**
+ * Create mock theme configuration
+ */
+export const createMockTheme = (mode: 'light' | 'dark' = 'light'): ThemeConfiguration => ({
+  mode,
+  colors: {
+    primary: mode === 'light' ? '#2563eb' : '#3b82f6',
+    secondary: mode === 'light' ? '#64748b' : '#94a3b8',
+    background: mode === 'light' ? '#ffffff' : '#0f172a',
+    surface: mode === 'light' ? '#f8fafc' : '#1e293b',
+    text: mode === 'light' ? '#0f172a' : '#f8fafc',
+    textSecondary: mode === 'light' ? '#475569' : '#cbd5e1',
+  },
+});
+
+// ===== Mock Implementations =====
+
+/**
+ * Mock API client with controllable responses
+ */
+export class MockApiClient {
+  private responses: Map<string, any> = new Map();
+  private delays: Map<string, number> = new Map();
+  private errors: Map<string, boolean> = new Map();
+
+  /**
+   * Set mock response for a specific method
+   */
+  setResponse(method: string, response: any): void {
+    this.responses.set(method, response);
+  }
+
+  /**
+   * Set delay for a specific method (simulates network latency)
+   */
+  setDelay(method: string, delay: number): void {
+    this.delays.set(method, delay);
+  }
+
+  /**
+   * Set error state for a specific method
+   */
+  setError(method: string, shouldError: boolean = true): void {
+    this.errors.set(method, shouldError);
+  }
+
+  /**
+   * Generic mock method that handles delays and errors
+   */
+  private async mockMethod<T>(methodName: string, defaultResponse: T): Promise<ApiResponse<T>> {
+    const delay = this.delays.get(methodName) || 0;
+    const shouldError = this.errors.get(methodName) || false;
+    const customResponse = this.responses.get(methodName);
+
+    // Simulate network delay
+    if (delay > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    // Return error if configured
+    if (shouldError) {
+      return createMockApiError(`Mock error for ${methodName}`);
+    }
+
+    // Return custom response or default
+    const responseData = customResponse || defaultResponse;
+    return createMockApiResponse(responseData);
+  }
+
+  async synthesizeText(request: SynthesisRequest): Promise<ApiResponse<AudioGeneration>> {
+    return this.mockMethod('synthesizeText', createMockAudioGeneration());
+  }
+
+  async synthesizeTextV1(request: SynthesisRequest): Promise<ApiResponse<AudioGeneration>> {
+    return this.mockMethod('synthesizeTextV1', createMockAudioGeneration());
+  }
+
+  async getModels(): Promise<ApiResponse<ModelInfo>> {
+    return this.mockMethod('getModels', createMockModelInfo());
+  }
+
+  async checkHealth(): Promise<ApiResponse<HealthResponse>> {
+    return this.mockMethod('checkHealth', createMockHealthResponse());
+  }
+
+  async getModelInfo(): Promise<ApiResponse<ExtendedModelInfo>> {
+    return this.mockMethod('getModelInfo', createMockExtendedModelInfo());
+  }
+
+  /**
+   * Reset all mock configurations
+   */
+  reset(): void {
+    this.responses.clear();
+    this.delays.clear();
+    this.errors.clear();
+  }
+}
+
+/**
+ * Mock Web Audio API context
+ */
+export class MockAudioContext {
+  state: AudioContextState = 'running';
+  sampleRate = 44100;
+  currentTime = 0;
+  destination: any = {};
+
+  async resume(): Promise<void> {
+    this.state = 'running';
+  }
+
+  async suspend(): Promise<void> {
+    this.state = 'suspended';
+  }
+
+  async close(): Promise<void> {
+    this.state = 'closed';
+  }
+
+  async decodeAudioData(audioData: ArrayBuffer): Promise<AudioBuffer> {
+    // Mock audio buffer with some basic properties
+    const mockBuffer = {
+      duration: 1.0,
+      sampleRate: 44100,
+      numberOfChannels: 1,
+      length: 44100,
+      getChannelData: (channel: number) => {
+        // Return mock waveform data (sine wave)
+        const samples = new Float32Array(1000);
+        for (let i = 0; i < samples.length; i++) {
+          samples[i] = Math.sin((i / samples.length) * Math.PI * 2);
+        }
+        return samples;
+      },
+    } as AudioBuffer;
+
+    return mockBuffer;
+  }
+}
+
+/**
+ * Mock HTMLAudioElement
+ */
+export class MockAudioElement {
+  src = '';
+  volume = 1;
+  currentTime = 0;
+  duration = 10;
+  paused = true;
+  playbackRate = 1;
+  muted = false;
+  
+  private eventListeners: Map<string, Function[]> = new Map();
+
+  addEventListener(event: string, listener: Function): void {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, []);
+    }
+    this.eventListeners.get(event)!.push(listener);
+  }
+
+  removeEventListener(event: string, listener: Function): void {
+    const listeners = this.eventListeners.get(event);
+    if (listeners) {
+      const index = listeners.indexOf(listener);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  dispatchEvent(event: Event): boolean {
+    const listeners = this.eventListeners.get(event.type);
+    if (listeners) {
+      listeners.forEach(listener => listener(event));
+    }
+    return true;
+  }
+
+  async play(): Promise<void> {
+    this.paused = false;
+    this.dispatchEvent(new Event('play'));
+  }
+
+  pause(): void {
+    this.paused = true;
+    this.dispatchEvent(new Event('pause'));
+  }
+
+  load(): void {
+    this.dispatchEvent(new Event('loadedmetadata'));
+  }
+}
+
+// ===== Global Mock Setup =====
+
+/**
+ * Setup global mocks for Web Audio API and other browser APIs
+ */
+export const setupGlobalMocks = (): void => {
+  // Mock Web Audio API
+  global.AudioContext = MockAudioContext as any;
+  global.webkitAudioContext = MockAudioContext as any;
+
+  // Mock HTMLAudioElement
+  global.Audio = MockAudioElement as any;
+
+  // Mock URL.createObjectURL
+  if (!global.URL.createObjectURL) {
+    global.URL.createObjectURL = jest.fn().mockImplementation((blob: Blob) => {
+      return `mock-blob-url-${Date.now()}`;
+    });
+  }
+
+  if (!global.URL.revokeObjectURL) {
+    global.URL.revokeObjectURL = jest.fn();
+  }
+
+  // Mock localStorage
+  const mockStorage = {
+    getItem: jest.fn(),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+    clear: jest.fn(),
+    length: 0,
+    key: jest.fn(),
+  };
+  Object.defineProperty(global, 'localStorage', {
+    value: mockStorage,
+    writable: true,
+  });
+
+  // Mock matchMedia
+  global.matchMedia = jest.fn().mockImplementation((query: string) => ({
+    matches: query.includes('dark'),
+    media: query,
+    onchange: null,
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    addListener: jest.fn(), // Legacy
+    removeListener: jest.fn(), // Legacy
+    dispatchEvent: jest.fn(),
+  }));
+
+  // Mock fetch
+  global.fetch = jest.fn();
+
+  // Mock FormData
+  global.FormData = class MockFormData {
+    private data: Map<string, any> = new Map();
+
+    append(key: string, value: any): void {
+      this.data.set(key, value);
+    }
+
+    get(key: string): any {
+      return this.data.get(key);
+    }
+
+    has(key: string): boolean {
+      return this.data.has(key);
+    }
+
+    delete(key: string): void {
+      this.data.delete(key);
+    }
+  } as any;
+};
+
+/**
+ * Clean up global mocks after tests
+ */
+export const cleanupGlobalMocks = (): void => {
+  jest.restoreAllMocks();
+  jest.clearAllMocks();
+};
+
+// ===== Custom Render Function =====
+
+/**
+ * All providers wrapper for testing
+ */
+const AllProviders: React.FC<{ children: ReactNode }> = ({ children }) => {
+  return (
+    <ThemeProvider>
+      <AudioProvider>
+        {children}
+      </AudioProvider>
+    </ThemeProvider>
+  );
+};
+
+/**
+ * Custom render options
+ */
+interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
+  /** Whether to wrap with theme provider (default: true) */
+  withTheme?: boolean;
+  /** Whether to wrap with audio provider (default: true) */
+  withAudio?: boolean;
+  /** Initial theme mode (default: 'light') */
+  initialTheme?: 'light' | 'dark';
+}
+
+/**
+ * Custom render function with context providers
+ * 
+ * @param ui - Component to render
+ * @param options - Render options
+ * @returns Render result with additional utilities
+ */
+export const customRender = (
+  ui: ReactElement,
+  {
+    withTheme = true,
+    withAudio = true,
+    initialTheme = 'light',
+    ...renderOptions
+  }: CustomRenderOptions = {}
+) => {
+  let Wrapper: React.FC<{ children: ReactNode }> | undefined;
+
+  if (withTheme || withAudio) {
+    Wrapper = ({ children }: { children: ReactNode }) => {
+      let content = children;
+
+      if (withAudio) {
+        content = <AudioProvider>{content}</AudioProvider>;
+      }
+
+      if (withTheme) {
+        content = <ThemeProvider>{content}</ThemeProvider>;
+      }
+
+      return <>{content}</>;
+    };
+  }
+
+  const result = render(ui, { wrapper: Wrapper, ...renderOptions });
+
+  return {
+    ...result,
+    /**
+     * Rerender with the same wrapper
+     */
+    rerender: (ui: ReactElement) =>
+      result.rerender(Wrapper ? <Wrapper>{ui}</Wrapper> : ui),
+  };
+};
+
+/**
+ * Render with all providers (convenience function)
+ */
+export const renderWithProviders = (ui: ReactElement, options: CustomRenderOptions = {}) => {
+  return customRender(ui, { withTheme: true, withAudio: true, ...options });
+};
+
+/**
+ * Render with theme provider only
+ */
+export const renderWithTheme = (ui: ReactElement, options: CustomRenderOptions = {}) => {
+  return customRender(ui, { withTheme: true, withAudio: false, ...options });
+};
+
+/**
+ * Render with audio provider only
+ */
+export const renderWithAudio = (ui: ReactElement, options: CustomRenderOptions = {}) => {
+  return customRender(ui, { withTheme: false, withAudio: true, ...options });
+};
+
+// ===== Test Utilities =====
+
+/**
+ * Wait for a specific condition to be true
+ */
+export const waitForCondition = async (
+  condition: () => boolean,
+  timeout: number = 1000,
+  interval: number = 10
+): Promise<void> => {
+  const startTime = Date.now();
+  
+  while (!condition()) {
+    if (Date.now() - startTime > timeout) {
+      throw new Error(`Condition not met within ${timeout}ms`);
+    }
+    await new Promise(resolve => setTimeout(resolve, interval));
+  }
+};
+
+/**
+ * Wait for an async operation to complete
+ */
+export const waitForAsync = async (ms: number = 0): Promise<void> => {
+  await new Promise(resolve => setTimeout(resolve, ms));
+};
+
+/**
+ * Create a mock file for testing
+ */
+export const createMockFile = (
+  name: string = 'test.wav',
+  content: string = 'mock audio content',
+  type: string = 'audio/wav'
+): File => {
+  const blob = new Blob([content], { type });
+  return new File([blob], name, { type });
+};
+
+/**
+ * Mock console methods to prevent test output noise
+ */
+export const mockConsole = () => {
+  const originalConsole = { ...console };
+  
+  beforeEach(() => {
+    console.log = jest.fn();
+    console.warn = jest.fn();
+    console.error = jest.fn();
+    console.info = jest.fn();
+  });
+
+  afterEach(() => {
+    Object.assign(console, originalConsole);
+  });
+};
+
+/**
+ * Test event dispatcher utility
+ */
+export const dispatchCustomEvent = (eventName: string, detail: any = null) => {
+  const event = new CustomEvent(eventName, { detail });
+  window.dispatchEvent(event);
+};
+
+// ===== Export default render function =====
+
+// Re-export testing library utilities with our custom render as default
+export * from '@testing-library/react';
+export { customRender as render };

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Advanced Text-to-Speech synthesis with voice cloning and multi-language support powered by Coqui TTS" />
+  <meta name="author" content="Coqui AI" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <title>Coqui TTS - Advanced Text-to-Speech Synthesis</title>
+  
+  <!-- Preload critical fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- Critical CSS for loading state -->
+  <style>
+    /* Reset and base styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    body {
+      margin: 0;
+      background-color: #ffffff;
+      color: #0f172a;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    
+    /* Dark theme support */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #0f172a;
+        color: #f8fafc;
+      }
+    }
+    
+    /* Loading screen styles */
+    .app-loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 9999;
+      transition: opacity 0.3s ease;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .app-loading {
+        background-color: #0f172a;
+        color: #f8fafc;
+      }
+    }
+    
+    .loading-logo {
+      font-size: 4rem;
+      margin-bottom: 1.5rem;
+      animation: pulse 2s infinite;
+    }
+    
+    .loading-text {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #2563eb;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .loading-text {
+        color: #60a5fa;
+      }
+    }
+    
+    .loading-subtitle {
+      font-size: 1rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .loading-subtitle {
+        color: #94a3b8;
+      }
+    }
+    
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e2e8f0;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .loading-spinner {
+        border-color: #334155;
+        border-top-color: #60a5fa;
+      }
+    }
+    
+    /* Loading animations */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    /* Accessibility improvements */
+    @media (prefers-reduced-motion: reduce) {
+      .loading-spinner,
+      .loading-logo {
+        animation: none;
+      }
+      
+      * {
+        transition: none !important;
+      }
+    }
+    
+    /* Hide loading screen when app is ready */
+    .app-ready .app-loading {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Focus management */
+    :focus-visible {
+      outline: 2px solid #2563eb;
+      outline-offset: 2px;
+    }
+    
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+      .loading-text {
+        color: #1d4ed8;
+      }
+      
+      @media (prefers-color-scheme: dark) {
+        .loading-text {
+          color: #93c5fd;
+        }
+      }
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/index-CMv_nSaq.js"></script>
+</head>
+
+<body>
+  <!-- App loading screen -->
+  <div id="app-loading" class="app-loading" role="status" aria-live="polite">
+    <div class="loading-logo" aria-hidden="true">🐸</div>
+    <div class="loading-text">Coqui TTS</div>
+    <div class="loading-subtitle">Advanced Text-to-Speech Synthesis</div>
+    <div class="loading-spinner" aria-label="Loading..."></div>
+  </div>
+  
+  <!-- React app mount point -->
+  <div id="root" role="main" aria-label="Coqui TTS Application"></div>
+  
+  <!-- Fallback content for users with JavaScript disabled -->
+  <noscript>
+    <div style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    ">
+      <div style="
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+      ">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🐸</div>
+        <h1 style="color: #0f172a; margin-bottom: 1rem;">JavaScript Required</h1>
+        <p style="color: #64748b; margin-bottom: 1.5rem;">
+          This application requires JavaScript to run. Please enable JavaScript in your browser and refresh the page.
+        </p>
+        <p style="color: #64748b; font-size: 0.9rem;">
+          If you continue to have issues, please visit our 
+          <a href="https://github.com/coqui-ai/TTS" style="color: #2563eb;">GitHub repository</a> 
+          for support.
+        </p>
+      </div>
+    </div>
+  </noscript>
+  
+  <!-- Application startup script -->
+  <script>
+    // Remove loading screen when app is ready
+    function hideLoadingScreen() {
+      const loadingElement = document.getElementById('app-loading');
+      if (loadingElement) {
+        document.body.classList.add('app-ready');
+        setTimeout(() => {
+          loadingElement.style.display = 'none';
+        }, 300);
+      }
+    }
+    
+    // Show loading screen initially
+    document.addEventListener('DOMContentLoaded', function() {
+      const loadingElement = document.getElementById('app-loading');
+      if (loadingElement) {
+        loadingElement.style.display = 'flex';
+      }
+    });
+    
+    // Handle app startup timeout
+    setTimeout(function() {
+      const rootElement = document.getElementById('root');
+      if (rootElement && !rootElement.hasChildNodes()) {
+        console.warn('[Startup] App startup timeout - displaying fallback');
+        hideLoadingScreen();
+        rootElement.innerHTML = `
+          <div style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+          ">
+            <div style="
+              background: white;
+              padding: 2rem;
+              border-radius: 8px;
+              box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+              text-align: center;
+              max-width: 500px;
+            ">
+              <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+              <h1 style="color: #dc2626; margin-bottom: 1rem;">Loading Timeout</h1>
+              <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                The application is taking longer than expected to load.
+              </p>
+              <button onclick="window.location.reload()" style="
+                background: #2563eb;
+                color: white;
+                border: none;
+                padding: 0.75rem 1.5rem;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1rem;
+              ">
+                Retry
+              </button>
+            </div>
+          </div>
+        `;
+      }
+    }, 10000); // 10 second timeout
+    
+    // Expose hideLoadingScreen globally for React app
+    window.hideLoadingScreen = hideLoadingScreen;
+    
+    // Performance monitoring
+    if (typeof performance !== 'undefined' && performance.mark) {
+      performance.mark('html-loaded');
+    }
+  </script>
+  
+  <!-- React application entry point -->
+</body>
+</html>
