@@ -173,3 +173,5 @@ coqui_recipes/*
 local_scripts/*
 coqui_demos/*
 /TTS/server/frontend/node_modules/
+/TTS/server/frontend/src/gen/
+/TTS/server/gen/
