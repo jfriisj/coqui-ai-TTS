@@ -49,32 +49,33 @@ class KokoroConfig(BaseTTSConfig):
     default_voice: str = "af_heart"
     default_lang: str = "a" 
     speed: float = 1.0
+
+    # Device configuration
     device: str = None
-    
-    # System settings
     enable_logging: bool = False
     cache_dir: str = field(default_factory=lambda: os.path.join(get_user_data_dir("tts"), "kokoro"))
-    
-    # Model-specific parameters
-    max_text_length: int = 512
-    sample_rate: int = 24000
-    hop_length: int = 256
-    win_length: int = 1024
-    n_mel: int = 100
-    
-    # Synthesis parameters
-    temperature: float = 0.7
-    length_penalty: float = 1.0
-    repetition_penalty: float = 1.0
     
     def __post_init__(self):
         """Set default values and validate configuration."""
         super().__post_init__()
         
-        # Set default paths if not provided
-        if self.cache_dir is None:
+        # Set up audio configuration for Kokoro
+        if not hasattr(self, 'audio') or self.audio is None:
+            from TTS.config.shared_configs import BaseAudioConfig
+            self.audio = BaseAudioConfig(
+                sample_rate=24000,
+                hop_length=256,
+                win_length=1024,
+                mel_fmin=0,
+                mel_fmax=12000,
+            )
+
+        # Ensure cache directory exists
+        if self.cache_dir:
+            os.makedirs(self.cache_dir, exist_ok=True)
+        else:
             self.cache_dir = os.path.join(get_user_data_dir("tts"), "kokoro")
-            
+
         # Validate language code
         if self.default_lang not in self.language_codes:
             raise ValueError(f"Invalid default language '{self.default_lang}'. "

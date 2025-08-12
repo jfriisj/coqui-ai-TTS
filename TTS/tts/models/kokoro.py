@@ -1,7 +1,5 @@
 import logging
-import os
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional
 
 import torch
 from coqpit import Coqpit
@@ -53,17 +51,17 @@ class Kokoro(BaseTTS):
         self.pipelines = {}  # Cache pipelines by language
         
         # Model paths
-        self.model_path = config.model_path
-        self.config_path = config.config_path
-        self.voices_path = config.voices_path
-        
+        self.model_path = getattr(config, 'model_path', None)
+        self.config_path = getattr(config, 'config_path', None)
+        self.voices_path = getattr(config, 'voices_path', None)
+
         # Default settings
-        self.default_voice = config.default_voice
-        self.default_lang = config.default_lang
-        self.speed = config.speed
-        
+        self.default_voice = getattr(config, 'default_voice', 'af_heart')
+        self.default_lang = getattr(config, 'default_lang', 'a')
+        self.speed = getattr(config, 'speed', 1.0)
+
         # Available languages and voices
-        self.language_codes = config.language_codes
+        self.language_codes = getattr(config, 'language_codes', {})
         self.available_voices = self._get_available_voices()
         
     def _get_available_voices(self) -> Dict[str, List[str]]:
@@ -184,13 +182,13 @@ class Kokoro(BaseTTS):
         
         voice = aux_input.get("voice", self.default_voice)
         lang = aux_input.get("lang", self.default_lang)
-        speed = aux_input.get("speed", self.speed)
-        
+        speed = float(aux_input.get("speed", self.speed))
+
         wav = self.synthesize(text=x, voice=voice, lang=lang, speed=speed)
         
         return {"wav": wav}
     
-    def forward(self, x: str, aux_input: Dict = None) -> Dict:
+    def forward(self, x, aux_input=None):
         """Forward pass - same as inference for this model."""
         return self.inference(x, aux_input)
     
@@ -199,32 +197,57 @@ class Kokoro(BaseTTS):
         """Initialize model from config."""
         # Create a minimal AudioProcessor for compatibility
         ap = AudioProcessor(
-            sample_rate=config.sample_rate,
-            hop_length=config.hop_length,
-            win_length=config.win_length,
-            n_mel=config.n_mel,
+            sample_rate=config.audio.sample_rate,
+            hop_length=config.audio.hop_length,
+            win_length=config.audio.win_length,
+            n_fft=config.audio.n_fft,
+            mel_fmin=config.audio.mel_fmin,
+            mel_fmax=config.audio.mel_fmax,
+            n_mels=config.audio.n_mels,
         )
         
         # Create a minimal tokenizer for compatibility
-        tokenizer = TTSTokenizer(use_phonemes=True)
-        
+        tokenizer = TTSTokenizer()
+
         return Kokoro(config=config, ap=ap, tokenizer=tokenizer, **kwargs)
     
-    def load_checkpoint(self, config: Coqpit, checkpoint_path: str, **kwargs):
-        """Load model from checkpoint - not needed for Kokoro as it uses HF downloads."""
-        logger.info("Kokoro model loading handled by KModel class")
-        return
-    
-    def get_model_file_path(self) -> str:
-        """Get the path to the model file."""
-        return self.model_path or "hexgrad/Kokoro-82M"
-    
-    def get_supported_languages(self) -> List[str]:
-        """Get list of supported language codes."""
-        return list(self.language_codes.keys())
-    
-    def get_supported_voices(self, lang: Optional[str] = None) -> Union[List[str], Dict[str, List[str]]]:
-        """Get supported voices for a language or all languages."""
-        if lang:
-            return self.available_voices.get(lang, [])
-        return self.available_voices
+    def load_checkpoint(self, checkpoint_path: str, eval: bool = True, strict: bool = True, cache: bool = False):
+        """Load model from checkpoint."""
+        # Kokoro handles its own model loading, so this is a no-op for compatibility
+        pass
+
+    def train_step(self, *args, **kwargs):
+        """Training step - not implemented for Kokoro."""
+        raise NotImplementedError("Training is not supported for Kokoro model.")
+
+    def eval_step(self, *args, **kwargs):
+        """Evaluation step - not implemented for Kokoro."""
+        raise NotImplementedError("Evaluation is not supported for Kokoro model.")
+
+    def get_optimizer(self):
+        """Get optimizer - not implemented for Kokoro."""
+        raise NotImplementedError("Optimizer is not supported for Kokoro model.")
+
+    def get_lr(self):
+        """Get learning rate - not implemented for Kokoro."""
+        raise NotImplementedError("Learning rate is not supported for Kokoro model.")
+
+    def get_scheduler(self, optimizer):
+        """Get scheduler - not implemented for Kokoro."""
+        raise NotImplementedError("Scheduler is not supported for Kokoro model.")
+
+    def get_criterion(self):
+        """Get criterion - not implemented for Kokoro."""
+        raise NotImplementedError("Criterion is not supported for Kokoro model.")
+
+    def format_batch(self, batch):
+        """Format batch - not implemented for Kokoro."""
+        raise NotImplementedError("Batch formatting is not supported for Kokoro model.")
+
+    def get_data_loader(self, config, assets, is_eval, samples, verbose, num_gpus, rank=0):
+        """Get data loader - not implemented for Kokoro."""
+        raise NotImplementedError("Data loader is not supported for Kokoro model.")
+
+    def test_run(self, assets):
+        """Test run - not implemented for Kokoro."""
+        pass

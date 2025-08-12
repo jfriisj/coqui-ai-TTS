@@ -14,7 +14,9 @@
       "Bash(PYTHONPATH=. python3:*)",
       "Bash(rm:*)",
       "WebFetch(domain:huggingface.co)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npx claude-code-spec-workflow:*)",
+      "Bash(claude-code-spec-workflow:*)"
     ],
     "deny": [],
     "ask": []
