@@ -1,0 +1,1211 @@
+---
+openapi: 3.0.0
+info:
+  title: Coqui TTS Server
+  description: Text-to-Speech server with voice cloning, multi-speaker, and multi-lingual
+    support
+  version: 1.0.0
+paths:
+  "/api/tts":
+    post:
+      summary: Text-to-Speech Synthesis
+      description: Convert text to speech using the currently loaded TTS model
+      operationId: tts_synthesis_post
+      parameters:
+        - name: text
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+            description: Text to synthesize
+            title: Text
+          description: Text to synthesize
+        - name: speaker_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+            description: Speaker ID for multi-speaker models
+            title: Speaker Id
+          description: Speaker ID for multi-speaker models
+        - name: language_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+            description: Language ID for multilingual models
+            title: Language Id
+          description: Language ID for multilingual models
+        - name: style_wav
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+            description: Style wav file or GST tokens
+            title: Style Wav
+          description: Style wav file or GST tokens
+        - name: speaker_wav
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+            description: Speaker wav file for voice cloning
+            title: Speaker Wav
+          description: Speaker wav file for voice cloning
+        - name: speaker-id
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+            title: Speaker-Id
+        - name: language-id
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+            title: Language-Id
+        - name: text
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            title: Text
+        - name: style-wav
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            title: Style-Wav
+        - name: speaker-wav
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            title: Speaker-Wav
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+    get:
+      summary: Text-to-Speech Synthesis
+      description: Convert text to speech using the currently loaded TTS model
+      operationId: tts_synthesis_get
+      parameters:
+        - name: text
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Text to synthesize
+            title: Text
+          description: Text to synthesize
+        - name: speaker_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Speaker ID for multi-speaker models
+            title: Speaker Id
+          description: Speaker ID for multi-speaker models
+        - name: language_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Language ID for multilingual models
+            title: Language Id
+          description: Language ID for multilingual models
+        - name: style_wav
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Style wav file or GST tokens
+            title: Style Wav
+          description: Style wav file or GST tokens
+        - name: speaker_wav
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Speaker wav file for voice cloning
+            title: Speaker Wav
+          description: Speaker wav file for voice cloning
+        - name: speaker-id
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            title: Speaker-Id
+        - name: language-id
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            title: Language-Id
+        - name: text
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            title: Text
+        - name: style-wav
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            title: Style-Wav
+        - name: speaker-wav
+          in: header
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            title: Speaker-Wav
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/locales":
+    get:
+      summary: MaryTTS Compatible Locales
+      description: MaryTTS-compatible /locales endpoint
+      operationId: mary_tts_api_locales_locales_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/voices":
+    get:
+      summary: MaryTTS Compatible Voices
+      description: MaryTTS-compatible /voices endpoint
+      operationId: mary_tts_api_voices_voices_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/process":
+    post:
+      summary: MaryTTS Compatible Process
+      description: MaryTTS-compatible /process endpoint
+      operationId: mary_tts_process_post
+      parameters:
+        - name: INPUT_TEXT
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Text to synthesize
+            title: Input Text
+          description: Text to synthesize
+        - name: VOICE
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Voice/speaker ID
+            title: Voice
+          description: Voice/speaker ID
+        - name: LOCALE
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Language locale (ignored)
+            title: Locale
+          description: Language locale (ignored)
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+    get:
+      summary: MaryTTS Compatible Process
+      description: MaryTTS-compatible /process endpoint
+      operationId: mary_tts_process_get
+      parameters:
+        - name: INPUT_TEXT
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Text to synthesize
+            title: Input Text
+          description: Text to synthesize
+        - name: VOICE
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Voice/speaker ID
+            title: Voice
+          description: Voice/speaker ID
+        - name: LOCALE
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+
+            description: Language locale (ignored)
+            title: Locale
+          description: Language locale (ignored)
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/v1/audio/speech":
+    post:
+      summary: OpenAI Compatible Speech API
+      description: OpenAI-compatible text-to-speech endpoint
+      operationId: openai_tts_v1_audio_speech_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/OpenAITTSRequest"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/models":
+    get:
+      summary: List Available Models
+      description: Get list of all available TTS models
+      operationId: api_v1_models_api_v1_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/tts":
+    post:
+      summary: TTS Synthesis
+      description: Synthesize speech from text using the advanced API
+      operationId: api_v1_tts_api_v1_tts_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/TTSRequest"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/health":
+    get:
+      summary: Health Check
+      description: Get comprehensive health status of the TTS server and its components
+      operationId: api_v1_health_api_v1_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HealthResponse"
+  "/api/v1/voice-convert":
+    post:
+      summary: Voice Conversion
+      description: Convert voice characteristics from source to target audio
+      operationId: api_v1_voice_convert_api_v1_voice_convert_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              "$ref": "#/components/schemas/Body_api_v1_voice_convert_api_v1_voice_convert_post"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/models/available":
+    get:
+      summary: Get available models
+      description: Get a list of all available TTS models with metadata
+      operationId: api_v1_models_available_api_v1_models_available_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/current":
+    get:
+      summary: Get current model
+      description: Get information about the currently loaded model
+      operationId: api_v1_models_current_api_v1_models_current_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/load":
+    post:
+      summary: Load model
+      description: Load a specific TTS model
+      operationId: api_v1_models_load_api_v1_models_load_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ModelLoadRequest"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/models/status":
+    get:
+      summary: Get model loading status
+      description: Get the current status of model loading operations
+      operationId: api_v1_models_status_api_v1_models_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/cancel":
+    post:
+      summary: Cancel model loading
+      description: Cancel the current model loading operation
+      operationId: api_v1_models_cancel_api_v1_models_cancel_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/speakers":
+    get:
+      summary: Get model speakers
+      description: Get available speakers for the current model
+      operationId: api_v1_get_model_speakers_api_v1_models_speakers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/languages":
+    get:
+      summary: Get model languages
+      description: Get available languages for the current model
+      operationId: api_v1_get_model_languages_api_v1_models_languages_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/cache/stats":
+    get:
+      summary: Get cache statistics
+      description: Get detailed cache statistics and memory usage
+      operationId: api_v1_cache_stats_api_v1_cache_stats_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/cache/clear":
+    post:
+      summary: Clear cache
+      description: Clear all cached models from memory
+      operationId: api_v1_cache_clear_api_v1_cache_clear_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/cache/cleanup":
+    post:
+      summary: Cleanup cache
+      description: Perform LRU cache cleanup to free memory
+      operationId: api_v1_cache_cleanup_api_v1_cache_cleanup_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/registry/status":
+    get:
+      summary: Get registry status
+      description: Get model registry status and statistics
+      operationId: api_v1_registry_status_api_v1_registry_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/registry/refresh":
+    post:
+      summary: Refresh registry
+      description: Manually trigger model registry refresh
+      operationId: api_v1_registry_refresh_api_v1_registry_refresh_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/progress-stream":
+    get:
+      summary: Model loading progress stream
+      description: Server-sent events endpoint for streaming model loading progress
+      operationId: api_v1_models_progress_stream_api_v1_models_progress_stream_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/tts-models":
+    get:
+      summary: Get TTS models
+      description: Get a list of all available TTS models using ModelManager.list_tts_models()
+      operationId: api_v1_models_tts_models_api_v1_models_tts_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/vocoder-models":
+    get:
+      summary: Get vocoder models
+      description: Get a list of all available vocoder models using ModelManager.list_vocoder_models()
+      operationId: api_v1_models_vocoder_models_api_v1_models_vocoder_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/vc-models":
+    get:
+      summary: Get voice conversion models
+      description: Get a list of all available voice conversion models using ModelManager.list_vc_models()
+      operationId: api_v1_models_vc_models_api_v1_models_vc_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/info/{model_path}":
+    get:
+      summary: Get detailed model information
+      description: Get detailed information about a specific model using ModelManager.model_info_by_full_name()
+      operationId: api_v1_models_info_api_v1_models_info__model_path__get
+      parameters:
+        - name: model_path
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Model Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/models/all-languages":
+    get:
+      summary: Get all supported languages
+      description: Get a list of all supported languages using ModelManager.list_langs()
+      operationId: api_v1_models_all_languages_api_v1_models_all_languages_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/datasets":
+    get:
+      summary: Get available datasets
+      description: Get a list of all available datasets using ModelManager.list_datasets()
+      operationId: api_v1_models_datasets_api_v1_models_datasets_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/capabilities":
+    get:
+      summary: Get current model capabilities
+      description: Get comprehensive capabilities of the currently loaded model using
+        TTS API properties
+      operationId: api_v1_models_capabilities_api_v1_models_capabilities_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+  "/api/v1/models/download/{model_path}":
+    get:
+      summary: Download model
+      description: Download and cache a specific model using ModelManager.download_model()
+      operationId: api_v1_models_download_api_v1_models_download__model_path__get
+      parameters:
+        - name: model_path
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Model Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/tts/enhanced":
+    post:
+      summary: Enhanced TTS synthesis
+      description: Advanced TTS synthesis with full parameter support from Synthesizer.tts()
+        method
+      operationId: api_v1_tts_enhanced_api_v1_tts_enhanced_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/EnhancedTTSRequest"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/tts/batch":
+    post:
+      summary: Batch TTS synthesis
+      description: Synthesize multiple texts in a single request
+      operationId: api_v1_tts_batch_api_v1_tts_batch_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/BatchTTSRequest"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/voice-convert/convert":
+    post:
+      summary: Voice conversion
+      description: Convert source voice to target speaker using TTS API voice_conversion()
+        method
+      operationId: api_v1_voice_convert_api_v1_voice_convert_convert_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/VoiceConversionRequest"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/tts/with-voice-conversion":
+    post:
+      summary: TTS with voice conversion
+      description: Combine TTS with voice conversion using TTS API tts_with_vc() method
+      operationId: api_v1_tts_with_vc_api_v1_tts_with_voice_conversion_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/TTSWithVCRequest"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/utils/split-sentences":
+    post:
+      summary: Split text into sentences
+      description: Split input text into sentences using Synthesizer.split_into_sentences()
+        method
+      operationId: api_v1_utils_split_sentences_api_v1_utils_split_sentences_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/TextPreprocessingRequest"
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HTTPValidationError"
+  "/api/v1/utils/model-file-info":
+    get:
+      summary: Get model file information
+      description: Get information about currently loaded model files
+      operationId: api_v1_utils_model_file_info_api_v1_utils_model_file_info_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: { }
+components:
+  schemas:
+    BatchTTSRequest:
+      properties:
+        texts:
+          items:
+            type: string
+          type: array
+          maxItems: 10
+          minItems: 1
+          title: Texts
+          description: List of texts to synthesize
+        speaker_name:
+          anyOf:
+            - type: string
+
+          title: Speaker Name
+          description: Speaker name for multi-speaker models
+        language_name:
+          anyOf:
+            - type: string
+
+          title: Language Name
+          description: Language name for multilingual models
+        speaker_wav:
+          anyOf:
+            - type: string
+
+          title: Speaker Wav
+          description: Path or URL to speaker wav file for voice cloning
+        split_sentences:
+          type: boolean
+          title: Split Sentences
+          description: Split text into sentences for synthesis
+          default: true
+        format:
+          type: string
+          pattern: "^(wav|mp3|opus|aac|flac|pcm)$"
+          title: Format
+          description: Output audio format
+          default: wav
+        concatenate:
+          type: boolean
+          title: Concatenate
+          description: Concatenate all audio files into one
+          default: true
+      type: object
+      required:
+        - texts
+      title: BatchTTSRequest
+    Body_api_v1_voice_convert_api_v1_voice_convert_post:
+      properties:
+        source_wav:
+          type: string
+          format: binary
+          title: Source Wav
+          description: Source audio file
+        target_wav:
+          type: string
+          format: binary
+          title: Target Wav
+          description: Target audio file for voice characteristics
+      type: object
+      required:
+        - source_wav
+        - target_wav
+      title: Body_api_v1_voice_convert_api_v1_voice_convert_post
+    EnhancedTTSRequest:
+      properties:
+        text:
+          type: string
+          maxLength: 5000
+          minLength: 1
+          title: Text
+          description: Text to synthesize
+        speaker_name:
+          anyOf:
+            - type: string
+
+          title: Speaker Name
+          description: Speaker name for multi-speaker models
+        language_name:
+          anyOf:
+            - type: string
+
+          title: Language Name
+          description: Language name for multilingual models
+        speaker_wav:
+          anyOf:
+            - type: string
+
+          title: Speaker Wav
+          description: Path or URL to speaker wav file for voice cloning
+        style_wav:
+          anyOf:
+            - type: string
+
+          title: Style Wav
+          description: Path or URL to style wav file for GST models
+        style_text:
+          anyOf:
+            - type: string
+
+          title: Style Text
+          description: Transcription of style_wav for Capacitron models
+        source_wav:
+          anyOf:
+            - type: string
+
+          title: Source Wav
+          description: Source wav file for voice conversion
+        source_speaker_name:
+          anyOf:
+            - type: string
+
+          title: Source Speaker Name
+          description: Source speaker name for voice conversion
+        split_sentences:
+          type: boolean
+          title: Split Sentences
+          description: Split text into sentences for synthesis
+          default: true
+        voice_dir:
+          anyOf:
+            - type: string
+
+          title: Voice Dir
+          description: Directory for cached voices
+        format:
+          type: string
+          pattern: "^(wav|mp3|opus|aac|flac|pcm)$"
+          title: Format
+          description: Output audio format
+          default: wav
+      type: object
+      required:
+        - text
+      title: EnhancedTTSRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            "$ref": "#/components/schemas/ValidationError"
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+          description: Overall health status
+        model_loaded:
+          type: boolean
+          title: Model Loaded
+          description: Whether a TTS model is currently loaded
+        components:
+          additionalProperties: true
+          type: object
+          title: Components
+          description: Status of individual components
+        cache:
+          anyOf:
+            - additionalProperties: true
+              type: object
+
+          title: Cache
+          description: Cache statistics
+        model_name:
+          anyOf:
+            - type: string
+
+          title: Model Name
+          description: Currently loaded model name
+        model_capabilities:
+          anyOf:
+            - additionalProperties: true
+              type: object
+
+          title: Model Capabilities
+          description: Model capabilities
+      type: object
+      required:
+        - status
+        - model_loaded
+        - components
+      title: HealthResponse
+    ModelLoadRequest:
+      properties:
+        model_id:
+          type: string
+          title: Model Id
+          description: Name of the model to load
+        force_reload:
+          type: boolean
+          title: Force Reload
+          description: Force reload even if model is already loaded
+          default: false
+      type: object
+      required:
+        - model_id
+      title: ModelLoadRequest
+    OpenAITTSRequest:
+      properties:
+        model:
+          type: string
+          title: Model
+          description: Model to use (ignored, uses currently loaded model)
+          default: tts-1
+        voice:
+          type: string
+          title: Voice
+          description: Voice ID or file path for voice cloning
+        input:
+          type: string
+          minLength: 1
+          title: Input
+          description: Text to synthesize
+        response_format:
+          type: string
+          pattern: "^(wav|mp3|opus|aac|flac|pcm)$"
+          title: Response Format
+          description: Audio format
+          default: wav
+        speed:
+          type: number
+          maximum: 4
+          minimum: 0.25
+          title: Speed
+          description: Speed of speech
+          default: 1
+      type: object
+      required:
+        - voice
+        - input
+      title: OpenAITTSRequest
+    TTSRequest:
+      properties:
+        text:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Text
+          description: Text to synthesize
+        speaker:
+          anyOf:
+            - type: string
+          title: Speaker
+          description: Speaker ID or speaker wav file path for voice cloning
+        language:
+          anyOf:
+            - type: string
+          title: Language
+          description: Language ID for multilingual models
+        speaker_id:
+          anyOf:
+            - type: string
+          title: Speaker Id
+          description: Alias for speaker
+        language_id:
+          anyOf:
+            - type: string
+          title: Language Id
+          description: Alias for language
+        format:
+          type: string
+          pattern: "^(wav|mp3|opus|aac|flac|pcm)$"
+          title: Format
+          description: Output audio format
+          default: wav
+      type: object
+      required:
+        - text
+      title: TTSRequest
+    TTSWithVCRequest:
+      properties:
+        text:
+          type: string
+          maxLength: 5000
+          minLength: 1
+          title: Text
+          description: Text to synthesize
+        language:
+          anyOf:
+            - type: string
+          title: Language
+          description: Language ID for multilingual models
+        speaker_wav:
+          type: string
+          title: Speaker Wav
+          description: Path or URL to speaker wav file for voice cloning
+        speaker:
+          anyOf:
+            - type: string
+          title: Speaker
+          description: Speaker name for multi-speaker models
+        split_sentences:
+          type: boolean
+          title: Split Sentences
+          description: Split text into sentences for synthesis
+          default: true
+        format:
+          type: string
+          pattern: "^(wav|mp3|opus|aac|flac|pcm)$"
+          title: Format
+          description: Output audio format
+          default: wav
+      type: object
+      required:
+        - text
+        - speaker_wav
+      title: TTSWithVCRequest
+    TextPreprocessingRequest:
+      properties:
+        text:
+          type: string
+          maxLength: 10000
+          minLength: 1
+          title: Text
+          description: Text to preprocess
+        language:
+          type: string
+          title: Language
+          description: Language code for sentence segmentation
+          default: en
+      type: object
+      required:
+        - text
+      title: TextPreprocessingRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+    VoiceConversionRequest:
+      properties:
+        source_wav:
+          type: string
+          title: Source Wav
+          description: Path or URL to source wav file
+        target_wav:
+          anyOf:
+            - type: string
+          title: Target Wav
+          description: Path or URL to target wav file for voice cloning
+        speaker:
+          anyOf:
+            - type: string
+          title: Speaker
+          description: Custom target speaker ID to cache the cloned voice
+        voice_dir:
+          anyOf:
+            - type: string
+          title: Voice Dir
+          description: Cache folder for cloned voices
+        source_speaker:
+          anyOf:
+            - type: string
+          title: Source Speaker
+          description: Source speaker ID (only needed for embedding-based models)
+        format:
+          type: string
+          pattern: "^(wav|mp3|opus|aac|flac|pcm)$"
+          title: Format
+          description: Output audio format
+          default: wav
+      type: object
+      required:
+        - source_wav
+      title: VoiceConversionRequest
