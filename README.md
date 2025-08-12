@@ -23,6 +23,7 @@
 </div>
 
 ## 📣 News
+- **Extended Server with Modern Frontend**: This fork includes an enhanced TTS server with a modern React-based web interface featuring model management, voice cloning, synthesis controls, and real-time audio visualization.
 - **Fork of the [original, unmaintained repository](https://github.com/coqui-ai/TTS). New PyPI package: [coqui-tts](https://pypi.org/project/coqui-tts)**
 - 0.25.0: [OpenVoice](https://github.com/myshell-ai/OpenVoice) models now available for voice conversion.
 - 0.24.2: Prebuilt wheels are now also published for Mac and Windows (in addition to Linux as before) for easier installation across platforms.
