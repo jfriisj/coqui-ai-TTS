@@ -91,8 +91,8 @@ class KModel(torch.nn.Module):
         speed: float = 1
     ) -> tuple[torch.FloatTensor, torch.LongTensor]:
         input_lengths = torch.full(
-            (input_ids.shape[0],),
-            input_ids.shape[-1],
+            (input_ids.shape[0],), 
+            input_ids.shape[-1], 
             device=input_ids.device,
             dtype=torch.long
         )

@@ -1,0 +1,23 @@
+# Ignore files we don't need for frontend
+.gitignore
+.npmignore
+git_push.sh
+.openapi-generator-ignore
+README.md
+package.json
+tsconfig.json
+tsconfig.esm.json
+
+# We only want the core types and API classes
+!src/models/*.ts
+!src/apis/*.ts
+!src/runtime.ts
+!src/index.ts
+
+# Ignore test files
+**/test/**
+**/*.test.ts
+**/*.spec.ts
+
+# Ignore documentation
+docs/**

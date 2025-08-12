@@ -39,7 +39,6 @@ LANG_CODES = dict(
     z='Mandarin Chinese',
 )
 
-
 class KPipeline:
     '''
     KPipeline is a language-aware support class with 2 main responsibilities:
@@ -62,18 +61,17 @@ class KPipeline:
 
     A "loud" KPipeline _with_ a model yields (graphemes, phonemes, audio).
     '''
-
     def __init__(
-            self,
-            lang_code: str,
-            repo_id: Optional[str] = None,
-            model: Union[KModel, bool] = True,
-            trf: bool = False,
-            en_callable: Optional[Callable[[str], str]] = None,
-            device: Optional[str] = None
+        self,
+        lang_code: str,
+        repo_id: Optional[str] = None,
+        model: Union[KModel, bool] = True,
+        trf: bool = False,
+        en_callable: Optional[Callable[[str], str]] = None,
+        device: Optional[str] = None
     ):
         """Initialize a KPipeline.
-
+        
         Args:
             lang_code: Language code for G2P processing
             model: KModel instance, True to create new model, False for no model
@@ -117,12 +115,12 @@ class KPipeline:
         self.voices = {}
         if lang_code in 'ab':
             try:
-                fallback = espeak.EspeakFallback(british=lang_code == 'b')
+                fallback = espeak.EspeakFallback(british=lang_code=='b')
             except Exception as e:
                 logger.warning("EspeakFallback not Enabled: OOD words will be skipped")
                 logger.warning({str(e)})
                 fallback = None
-            self.g2p = en.G2P(trf=trf, british=lang_code == 'b', fallback=fallback, unk='')
+            self.g2p = en.G2P(trf=trf, british=lang_code=='b', fallback=fallback, unk='')
         elif lang_code == 'j':
             try:
                 from misaki import ja
@@ -142,8 +140,7 @@ class KPipeline:
                 raise
         else:
             language = LANG_CODES[lang_code]
-            logger.warning(
-                f"Using EspeakG2P(language='{language}'). Chunking logic not yet implemented, so long texts may be truncated unless you split them with '\\n'.")
+            logger.warning(f"Using EspeakG2P(language='{language}'). Chunking logic not yet implemented, so long texts may be truncated unless you split them with '\\n'.")
             self.g2p = espeak.EspeakG2P(language=language)
 
     def load_single_voice(self, voice: str):
@@ -167,7 +164,6 @@ class KPipeline:
     If multiple voices are requested, they are averaged.
     Delimiter is optional and defaults to ','.
     """
-
     def load_voice(self, voice: Union[str, torch.FloatTensor], delimiter: str = ",") -> torch.FloatTensor:
         if isinstance(voice, torch.FloatTensor):
             return voice
@@ -186,10 +182,10 @@ class KPipeline:
 
     @staticmethod
     def waterfall_last(
-            tokens: List[en.MToken],
-            next_count: int,
-            waterfall: List[str] = ['!.?…', ':;', ',—'],
-            bumps: List[str] = [')', '”']
+        tokens: List[en.MToken],
+        next_count: int,
+        waterfall: List[str] = ['!.?…', ':;', ',—'],
+        bumps: List[str] = [')', '”']
     ) -> int:
         for w in waterfall:
             z = next((i for i, t in reversed(list(enumerate(tokens))) if t.phonemes in set(w)), None)
@@ -207,14 +203,14 @@ class KPipeline:
         return ''.join(t.text + t.whitespace for t in tokens).strip()
 
     def en_tokenize(
-            self,
-            tokens: List[en.MToken]
+        self,
+        tokens: List[en.MToken]
     ) -> Generator[Tuple[str, str, List[en.MToken]], None, None]:
         tks = []
         pcount = 0
         for t in tokens:
             # American English: ɾ => T
-            t.phonemes = '' if t.phonemes is None else t.phonemes  # .replace('ɾ', 'T')
+            t.phonemes = '' if t.phonemes is None else t.phonemes#.replace('ɾ', 'T')
             next_ps = t.phonemes + (' ' if t.whitespace else '')
             next_pcount = pcount + len(next_ps.rstrip())
             if next_pcount > 510:
@@ -236,40 +232,40 @@ class KPipeline:
 
     @staticmethod
     def infer(
-            model: KModel,
-            ps: str,
-            pack: torch.FloatTensor,
-            speed: Union[float, Callable[[int], float]] = 1
+        model: KModel,
+        ps: str,
+        pack: torch.FloatTensor,
+        speed: Union[float, Callable[[int], float]] = 1
     ) -> KModel.Output:
         if callable(speed):
             speed = speed(len(ps))
-        return model(ps, pack[len(ps) - 1], speed, return_output=True)
+        return model(ps, pack[len(ps)-1], speed, return_output=True)
 
     def generate_from_tokens(
-            self,
-            tokens: Union[str, List[en.MToken]],
-            voice: str,
-            speed: float = 1,
-            model: Optional[KModel] = None
+        self,
+        tokens: Union[str, List[en.MToken]],
+        voice: str,
+        speed: float = 1,
+        model: Optional[KModel] = None
     ) -> Generator['KPipeline.Result', None, None]:
         """Generate audio from either raw phonemes or pre-processed tokens.
-
+        
         Args:
             tokens: Either a phoneme string or list of pre-processed MTokens
             voice: The voice to use for synthesis
             speed: Speech speed modifier (default: 1)
             model: Optional KModel instance (uses pipeline's model if not provided)
-
+        
         Yields:
             KPipeline.Result containing the input tokens and generated audio
-
+            
         Raises:
             ValueError: If no voice is provided or token sequence exceeds model limits
         """
         model = model or self.model
         if model and voice is None:
             raise ValueError('Specify a voice: pipeline.generate_from_tokens(..., voice="af_heart")')
-
+        
         pack = self.load_voice(voice).to(model.device) if model else None
 
         # Handle raw phoneme string
@@ -280,7 +276,7 @@ class KPipeline:
             output = KPipeline.infer(model, tokens, pack, speed) if model else None
             yield self.Result(graphemes='', phonemes=tokens, output=output)
             return
-
+        
         logger.debug("Processing MTokens")
         # Handle pre-processed tokens
         for gs, ps, tks in self.en_tokenize(tokens):
@@ -313,7 +309,7 @@ class KPipeline:
         # right = left + space_dur
         i = 1
         for t in tokens:
-            if i >= len(pred_dur) - 1:
+            if i >= len(pred_dur)-1:
                 break
             if not t.phonemes:
                 if t.whitespace:
@@ -363,27 +359,27 @@ class KPipeline:
         #### MARK: END BACKWARD COMPAT ####
 
     def __call__(
-            self,
-            text: Union[str, List[str]],
-            voice: Optional[str] = None,
-            speed: Union[float, Callable[[int], float]] = 1,
-            split_pattern: Optional[str] = r'\n+',
-            model: Optional[KModel] = None
+        self,
+        text: Union[str, List[str]],
+        voice: Optional[str] = None,
+        speed: Union[float, Callable[[int], float]] = 1,
+        split_pattern: Optional[str] = r'\n+',
+        model: Optional[KModel] = None
     ) -> Generator['KPipeline.Result', None, None]:
         model = model or self.model
         if model and voice is None:
             raise ValueError('Specify a voice: en_us_pipeline(text="Hello world!", voice="af_heart")')
         pack = self.load_voice(voice).to(model.device) if model else None
-
+        
         # Convert input to list of segments
         if isinstance(text, str):
             text = re.split(split_pattern, text.strip()) if split_pattern else [text]
-
+            
         # Process each segment
         for graphemes_index, graphemes in enumerate(text):
             if not graphemes.strip():  # Skip empty segments
                 continue
-
+                
             # English processing (unchanged)
             if self.lang_code in 'ab':
                 logger.debug(f"Processing English text: {graphemes[:50]}{'...' if len(graphemes) > 50 else ''}")
@@ -398,49 +394,49 @@ class KPipeline:
                     if output is not None and output.pred_dur is not None:
                         KPipeline.join_timestamps(tks, output.pred_dur)
                     yield self.Result(graphemes=gs, phonemes=ps, tokens=tks, output=output, text_index=graphemes_index)
-
+            
             # Non-English processing with chunking
             else:
                 # Split long text into smaller chunks (roughly 400 characters each)
                 # Using sentence boundaries when possible
                 chunk_size = 400
                 chunks = []
-
+                
                 # Try to split on sentence boundaries first
                 sentences = re.split(r'([.!?]+)', graphemes)
                 current_chunk = ""
-
+                
                 for i in range(0, len(sentences), 2):
                     sentence = sentences[i]
                     # Add the punctuation back if it exists
                     if i + 1 < len(sentences):
                         sentence += sentences[i + 1]
-
+                        
                     if len(current_chunk) + len(sentence) <= chunk_size:
                         current_chunk += sentence
                     else:
                         if current_chunk:
                             chunks.append(current_chunk.strip())
                         current_chunk = sentence
-
+                
                 if current_chunk:
                     chunks.append(current_chunk.strip())
-
+                
                 # If no chunks were created (no sentence boundaries), fall back to character-based chunking
                 if not chunks:
-                    chunks = [graphemes[i:i + chunk_size] for i in range(0, len(graphemes), chunk_size)]
-
+                    chunks = [graphemes[i:i+chunk_size] for i in range(0, len(graphemes), chunk_size)]
+                
                 # Process each chunk
                 for chunk in chunks:
                     if not chunk.strip():
                         continue
-
+                        
                     ps, _ = self.g2p(chunk)
                     if not ps:
                         continue
                     elif len(ps) > 510:
                         logger.warning(f'Truncating len(ps) == {len(ps)} > 510')
                         ps = ps[:510]
-
+                        
                     output = KPipeline.infer(model, ps, pack, speed) if model else None
                     yield self.Result(graphemes=chunk, phonemes=ps, output=output, text_index=graphemes_index)

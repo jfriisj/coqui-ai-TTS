@@ -28,6 +28,19 @@ import {
   type HttpMethod,
 } from '../types/api';
 
+// Import generated OpenAPI classes
+import {
+  TTSRequest,
+  ModelLoadRequest,
+  EnhancedTTSRequest,
+  BatchTTSRequest,
+  VoiceConversionRequest,
+  AvailableModelsGet200Response,
+  AvailableSpeakersGet200Response,
+  AvailableLanguagesGet200Response,
+  CurrentModelGet200Response,
+} from '../gen/src';
+
 // ===== Configuration =====
 
 /**
@@ -607,6 +620,166 @@ export class ApiClient {
   getConfig(): ApiClientConfig {
     return { ...this.config };
   }
+
+  // ===== Enhanced Methods Using Generated Classes =====
+
+  /**
+   * Synthesize speech using generated TTSRequest class for better type safety
+   *
+   * @param request - Generated TTSRequest object
+   * @param config - Request configuration options
+   * @returns Audio generation response or error
+   */
+  async synthesizeWithTTSRequest(
+    request: TTSRequest,
+    config?: RequestConfig
+  ): Promise<ApiResponse<AudioGeneration>> {
+    const ttsConfig = { timeout: 300000, ...config }; // 5 minutes
+    return this.makeRequest<AudioGeneration>(
+      API_ENDPOINTS.TTS_V1,
+      'POST',
+      request,
+      ttsConfig
+    );
+  }
+
+  /**
+   * Enhanced synthesis using the generated EnhancedTTSRequest class
+   *
+   * @param request - Generated EnhancedTTSRequest object
+   * @param config - Request configuration options
+   * @returns Audio generation response or error
+   */
+  async synthesizeEnhanced(
+    request: EnhancedTTSRequest,
+    config?: RequestConfig
+  ): Promise<ApiResponse<AudioGeneration>> {
+    const ttsConfig = { timeout: 300000, ...config }; // 5 minutes
+    return this.makeRequest<AudioGeneration>(
+      API_ENDPOINTS.TTS_V1,
+      'POST',
+      request,
+      ttsConfig
+    );
+  }
+
+  /**
+   * Batch synthesis using generated BatchTTSRequest class
+   *
+   * @param request - Generated BatchTTSRequest object
+   * @param config - Request configuration options
+   * @returns Audio generation response or error
+   */
+  async synthesizeBatch(
+    request: BatchTTSRequest,
+    config?: RequestConfig
+  ): Promise<ApiResponse<AudioGeneration[]>> {
+    const ttsConfig = { timeout: 600000, ...config }; // 10 minutes for batch
+    return this.makeRequest<AudioGeneration[]>(
+      '/api/v1/tts/batch', // Assuming batch endpoint
+      'POST',
+      request,
+      ttsConfig
+    );
+  }
+
+  /**
+   * Load model using generated ModelLoadRequest class
+   *
+   * @param request - Generated ModelLoadRequest object
+   * @param config - Request configuration options
+   * @returns Model load response or error
+   */
+  async loadModel(
+    request: ModelLoadRequest,
+    config?: RequestConfig
+  ): Promise<ApiResponse<any>> {
+    return this.makeRequest<any>(
+      '/api/v1/models/load',
+      'POST',
+      request,
+      config
+    );
+  }
+
+  /**
+   * Get available models with proper typing using generated response class
+   *
+   * @param config - Request configuration options
+   * @returns Available models response with proper typing
+   */
+  async getAvailableModelsTyped(config?: RequestConfig): Promise<ApiResponse<AvailableModelsGet200Response>> {
+    return this.makeRequest<AvailableModelsGet200Response>(
+      '/api/v1/models/available',
+      'GET',
+      undefined,
+      config
+    );
+  }
+
+  /**
+   * Get current model with proper typing using generated response class
+   *
+   * @param config - Request configuration options
+   * @returns Current model response with proper typing
+   */
+  async getCurrentModelTyped(config?: RequestConfig): Promise<ApiResponse<CurrentModelGet200Response>> {
+    return this.makeRequest<CurrentModelGet200Response>(
+      '/api/v1/models/current',
+      'GET',
+      undefined,
+      config
+    );
+  }
+
+  /**
+   * Get model speakers with proper typing using generated response class
+   *
+   * @param config - Request configuration options
+   * @returns Speakers response with proper typing
+   */
+  async getModelSpeakersTyped(config?: RequestConfig): Promise<ApiResponse<AvailableSpeakersGet200Response>> {
+    return this.makeRequest<AvailableSpeakersGet200Response>(
+      '/api/v1/models/speakers',
+      'GET',
+      undefined,
+      config
+    );
+  }
+
+  /**
+   * Get model languages with proper typing using generated response class
+   *
+   * @param config - Request configuration options
+   * @returns Languages response with proper typing
+   */
+  async getModelLanguagesTyped(config?: RequestConfig): Promise<ApiResponse<AvailableLanguagesGet200Response>> {
+    return this.makeRequest<AvailableLanguagesGet200Response>(
+      '/api/v1/models/languages',
+      'GET',
+      undefined,
+      config
+    );
+  }
+
+  /**
+   * Voice conversion using generated VoiceConversionRequest class
+   *
+   * @param request - Generated VoiceConversionRequest object
+   * @param config - Request configuration options
+   * @returns Audio generation response or error
+   */
+  async convertVoiceTyped(
+    request: VoiceConversionRequest,
+    config?: RequestConfig
+  ): Promise<ApiResponse<AudioGeneration>> {
+    return this.makeRequest<AudioGeneration>(
+      API_ENDPOINTS.VOICE_CONVERT,
+      'POST',
+      request,
+      config
+    );
+  }
 }
 
 // ===== Default Instance =====
@@ -652,3 +825,4 @@ export const checkHealth = async (): Promise<ApiResponse<HealthResponse>> => {
 export const getModels = async (): Promise<ApiResponse<ModelInfo>> => {
   return apiClient.getModels();
 };
+

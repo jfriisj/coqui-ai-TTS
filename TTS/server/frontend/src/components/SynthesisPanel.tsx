@@ -177,12 +177,12 @@ function buildSynthesisRequest(panelState: SynthesisPanelState): EnhancedSynthes
 
   // Add speaker selection if available
   if (panelState.selectedSpeaker.id) {
-    request.speaker_id = panelState.selectedSpeaker.id;
+    request.speakerId = panelState.selectedSpeaker.id;
   }
 
   // Add language selection if available
   if (panelState.selectedLanguage.code) {
-    request.language_id = panelState.selectedLanguage.code;
+    request.languageId = panelState.selectedLanguage.code;
   }
 
   // Add voice cloning file if available
@@ -881,3 +881,4 @@ export function SynthesisPanel({
 // ===== Export =====
 
 export default SynthesisPanel;
+

@@ -2,8 +2,7 @@
 openapi: 3.0.0
 info:
   title: Coqui TTS Server
-  description: Text-to-Speech server with voice cloning, multi-speaker, and multi-lingual
-    support
+  description: Text-to-Speech server with voice cloning, multi-speaker, and multi-lingual support
   version: 1.0.0
 paths:
   "/api/tts":
@@ -403,20 +402,35 @@ paths:
   "/api/v1/voice-convert":
     post:
       summary: Voice Conversion
-      description: Convert voice characteristics from source to target audio
-      operationId: api_v1_voice_convert_api_v1_voice_convert_post
+      description: Convert voice from source audio to target speaker
+      operationId: voice_conversion_post
       requestBody:
         content:
           multipart/form-data:
             schema:
-              "$ref": "#/components/schemas/Body_api_v1_voice_convert_api_v1_voice_convert_post"
-        required: true
+              type: object
+              properties:
+                source_wav:
+                  type: string
+                  format: binary
+                  description: Source audio file to convert
+                target_wav:
+                  type: string
+                  format: binary
+                  description: Target speaker audio file
+                speaker_id:
+                  type: string
+                  description: Target speaker ID (alternative to target_wav)
+              required:
+                - source_wav
       responses:
         '200':
           description: Successful Response
           content:
-            application/json:
-              schema: { }
+            audio/wav:
+              schema:
+                type: string
+                format: binary
         '422':
           description: Validation Error
           content:
@@ -425,31 +439,62 @@ paths:
                 "$ref": "#/components/schemas/HTTPValidationError"
   "/api/v1/models/available":
     get:
-      summary: Get available models
-      description: Get a list of all available TTS models with metadata
-      operationId: api_v1_models_available_api_v1_models_available_get
+      summary: List Available Models
+      description: Get detailed list of all available TTS models with metadata
+      operationId: available_models_get
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: { }
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        language:
+                          type: string
+                        dataset:
+                          type: string
+                        description:
+                          type: string
   "/api/v1/models/current":
     get:
-      summary: Get current model
+      summary: Get Current Model
       description: Get information about the currently loaded model
-      operationId: api_v1_models_current_api_v1_models_current_get
+      operationId: current_model_get
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: { }
+              schema:
+                type: object
+                properties:
+                  model_name:
+                    type: string
+                  is_multi_speaker:
+                    type: boolean
+                  is_multi_lingual:
+                    type: boolean
+                  speakers:
+                    type: array
+                    items:
+                      type: string
+                  languages:
+                    type: array
+                    items:
+                      type: string
   "/api/v1/models/load":
     post:
-      summary: Load model
+      summary: Load Model
       description: Load a specific TTS model
-      operationId: api_v1_models_load_api_v1_models_load_post
+      operationId: load_model_post
       requestBody:
         content:
           application/json:
@@ -461,367 +506,140 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: { }
-        '422':
-          description: Validation Error
-          content:
-            application/json:
               schema:
-                "$ref": "#/components/schemas/HTTPValidationError"
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
   "/api/v1/models/status":
     get:
-      summary: Get model loading status
-      description: Get the current status of model loading operations
-      operationId: api_v1_models_status_api_v1_models_status_get
+      summary: Model Loading Status
+      description: Get the status of model loading operations
+      operationId: model_status_get
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: { }
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  progress:
+                    type: number
+                  message:
+                    type: string
   "/api/v1/models/cancel":
     post:
-      summary: Cancel model loading
-      description: Cancel the current model loading operation
-      operationId: api_v1_models_cancel_api_v1_models_cancel_post
+      summary: Cancel Model Loading
+      description: Cancel any ongoing model loading operation
+      operationId: cancel_model_loading_post
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: { }
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
   "/api/v1/models/speakers":
     get:
-      summary: Get model speakers
-      description: Get available speakers for the current model
-      operationId: api_v1_get_model_speakers_api_v1_models_speakers_get
+      summary: Get Available Speakers
+      description: Get list of available speakers for the current model
+      operationId: available_speakers_get
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: { }
+              schema:
+                type: object
+                properties:
+                  speakers:
+                    type: array
+                    items:
+                      type: string
+                  default_speaker:
+                    type: string
   "/api/v1/models/languages":
     get:
-      summary: Get model languages
-      description: Get available languages for the current model
-      operationId: api_v1_get_model_languages_api_v1_models_languages_get
+      summary: Get Available Languages
+      description: Get list of available languages for the current model
+      operationId: available_languages_get
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: { }
+              schema:
+                type: object
+                properties:
+                  languages:
+                    type: array
+                    items:
+                      type: string
   "/api/v1/cache/stats":
     get:
-      summary: Get cache statistics
-      description: Get detailed cache statistics and memory usage
-      operationId: api_v1_cache_stats_api_v1_cache_stats_get
+      summary: Cache Statistics
+      description: Get statistics about the model cache
+      operationId: cache_stats_get
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: { }
+              schema:
+                type: object
+                properties:
+                  total_size:
+                    type: integer
+                  total_files:
+                    type: integer
+                  models:
+                    type: object
   "/api/v1/cache/clear":
     post:
-      summary: Clear cache
-      description: Clear all cached models from memory
-      operationId: api_v1_cache_clear_api_v1_cache_clear_post
+      summary: Clear Cache
+      description: Clear all cached models and data
+      operationId: clear_cache_post
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: { }
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
   "/api/v1/cache/cleanup":
     post:
-      summary: Cleanup cache
-      description: Perform LRU cache cleanup to free memory
-      operationId: api_v1_cache_cleanup_api_v1_cache_cleanup_post
+      summary: Cleanup Cache
+      description: Remove old or unused cache entries
+      operationId: cleanup_cache_post
       responses:
         '200':
           description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/registry/status":
-    get:
-      summary: Get registry status
-      description: Get model registry status and statistics
-      operationId: api_v1_registry_status_api_v1_registry_status_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/registry/refresh":
-    post:
-      summary: Refresh registry
-      description: Manually trigger model registry refresh
-      operationId: api_v1_registry_refresh_api_v1_registry_refresh_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/models/progress-stream":
-    get:
-      summary: Model loading progress stream
-      description: Server-sent events endpoint for streaming model loading progress
-      operationId: api_v1_models_progress_stream_api_v1_models_progress_stream_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/models/tts-models":
-    get:
-      summary: Get TTS models
-      description: Get a list of all available TTS models using ModelManager.list_tts_models()
-      operationId: api_v1_models_tts_models_api_v1_models_tts_models_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/models/vocoder-models":
-    get:
-      summary: Get vocoder models
-      description: Get a list of all available vocoder models using ModelManager.list_vocoder_models()
-      operationId: api_v1_models_vocoder_models_api_v1_models_vocoder_models_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/models/vc-models":
-    get:
-      summary: Get voice conversion models
-      description: Get a list of all available voice conversion models using ModelManager.list_vc_models()
-      operationId: api_v1_models_vc_models_api_v1_models_vc_models_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/models/info/{model_path}":
-    get:
-      summary: Get detailed model information
-      description: Get detailed information about a specific model using ModelManager.model_info_by_full_name()
-      operationId: api_v1_models_info_api_v1_models_info__model_path__get
-      parameters:
-        - name: model_path
-          in: path
-          required: true
-          schema:
-            type: string
-            title: Model Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-        '422':
-          description: Validation Error
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/HTTPValidationError"
-  "/api/v1/models/all-languages":
-    get:
-      summary: Get all supported languages
-      description: Get a list of all supported languages using ModelManager.list_langs()
-      operationId: api_v1_models_all_languages_api_v1_models_all_languages_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/models/datasets":
-    get:
-      summary: Get available datasets
-      description: Get a list of all available datasets using ModelManager.list_datasets()
-      operationId: api_v1_models_datasets_api_v1_models_datasets_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/models/capabilities":
-    get:
-      summary: Get current model capabilities
-      description: Get comprehensive capabilities of the currently loaded model using
-        TTS API properties
-      operationId: api_v1_models_capabilities_api_v1_models_capabilities_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-  "/api/v1/models/download/{model_path}":
-    get:
-      summary: Download model
-      description: Download and cache a specific model using ModelManager.download_model()
-      operationId: api_v1_models_download_api_v1_models_download__model_path__get
-      parameters:
-        - name: model_path
-          in: path
-          required: true
-          schema:
-            type: string
-            title: Model Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/HTTPValidationError"
-  "/api/v1/tts/enhanced":
-    post:
-      summary: Enhanced TTS synthesis
-      description: Advanced TTS synthesis with full parameter support from Synthesizer.tts()
-        method
-      operationId: api_v1_tts_enhanced_api_v1_tts_enhanced_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              "$ref": "#/components/schemas/EnhancedTTSRequest"
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/HTTPValidationError"
-  "/api/v1/tts/batch":
-    post:
-      summary: Batch TTS synthesis
-      description: Synthesize multiple texts in a single request
-      operationId: api_v1_tts_batch_api_v1_tts_batch_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              "$ref": "#/components/schemas/BatchTTSRequest"
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/HTTPValidationError"
-  "/api/v1/voice-convert/convert":
-    post:
-      summary: Voice conversion
-      description: Convert source voice to target speaker using TTS API voice_conversion()
-        method
-      operationId: api_v1_voice_convert_api_v1_voice_convert_convert_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              "$ref": "#/components/schemas/VoiceConversionRequest"
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/HTTPValidationError"
-  "/api/v1/tts/with-voice-conversion":
-    post:
-      summary: TTS with voice conversion
-      description: Combine TTS with voice conversion using TTS API tts_with_vc() method
-      operationId: api_v1_tts_with_vc_api_v1_tts_with_voice_conversion_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              "$ref": "#/components/schemas/TTSWithVCRequest"
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/HTTPValidationError"
-  "/api/v1/utils/split-sentences":
-    post:
-      summary: Split text into sentences
-      description: Split input text into sentences using Synthesizer.split_into_sentences()
-        method
-      operationId: api_v1_utils_split_sentences_api_v1_utils_split_sentences_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              "$ref": "#/components/schemas/TextPreprocessingRequest"
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/HTTPValidationError"
-  "/api/v1/utils/model-file-info":
-    get:
-      summary: Get model file information
-      description: Get information about currently loaded model files
-      operationId: api_v1_utils_model_file_info_api_v1_utils_model_file_info_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: { }
+                type: object
+                properties:
+                  status:
+                    type: string
+                  cleaned_files:
+                    type: integer
+                  freed_space:
+                    type: integer
 components:
   schemas:
     BatchTTSRequest:

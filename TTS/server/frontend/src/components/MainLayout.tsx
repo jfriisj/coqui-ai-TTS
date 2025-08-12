@@ -399,7 +399,7 @@ export function MainLayout({ className = "" }: MainLayoutProps): JSX.Element {
    * Handle synthesis completion (Requirement 5.2: immediate feedback)
    */
   const handleSynthesisComplete = useCallback(async (result: SynthesisResult, request: EnhancedSynthesisRequest) => {
-    const newRecord = await addAudioGeneration(result.audio, result.metadata.text, request);
+    const newRecord = await addAudioGeneration(result.audio, result.metadata.text, request as any);
     setLayoutState(prev => ({
       ...prev,
       activeAudioRecord: newRecord,

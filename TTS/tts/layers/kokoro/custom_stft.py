@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class CustomSTFT(nn.Module):
     """
     STFT/iSTFT without unfold/complex ops, using conv1d and conv_transpose1d.
@@ -12,18 +11,18 @@ class CustomSTFT(nn.Module):
     - forward STFT => Real-part conv1d + Imag-part conv1d
     - inverse STFT => Real-part conv_transpose1d + Imag-part conv_transpose1d + sum
     - avoids F.unfold, so easier to export to ONNX
-    - uses replicate or constant padding for 'center=True' to approximate 'reflect'
+    - uses replicate or constant padding for 'center=True' to approximate 'reflect' 
       (reflect is not supported for dynamic shapes in ONNX)
     """
 
     def __init__(
-            self,
-            filter_length=800,
-            hop_length=200,
-            win_length=800,
-            window="hann",
-            center=True,
-            pad_mode="replicate",  # or 'constant'
+        self,
+        filter_length=800,
+        hop_length=200,
+        win_length=800,
+        window="hann",
+        center=True,
+        pad_mode="replicate",  # or 'constant'
     ):
         super().__init__()
         self.filter_length = filter_length
@@ -76,8 +75,8 @@ class CustomSTFT(nn.Module):
 
         # Precompute inverse DFT
         # Real iFFT formula => scale = 1/n_fft, doubling for bins 1..freq_bins-2 if n_fft even, etc.
-        # For simplicity, we won't do the "DC/nyquist not doubled" approach here.
-        # If you want perfect real iSTFT, you can add that logic.
+        # For simplicity, we won't do the "DC/nyquist not doubled" approach here. 
+        # If you want perfect real iSTFT, you can add that logic. 
         # This version just yields good approximate reconstruction with Hann + typical overlap.
         inv_scale = 1.0 / self.n_fft
         n = np.arange(self.n_fft)
@@ -98,6 +97,8 @@ class CustomSTFT(nn.Module):
         self.register_buffer(
             "weight_backward_imag", torch.from_numpy(backward_imag).float().unsqueeze(1)
         )
+        
+
 
     def transform(self, waveform: torch.Tensor):
         """
@@ -129,13 +130,14 @@ class CustomSTFT(nn.Module):
         )
 
         # magnitude, phase
-        magnitude = torch.sqrt(real_out ** 2 + imag_out ** 2 + 1e-14)
+        magnitude = torch.sqrt(real_out**2 + imag_out**2 + 1e-14)
         phase = torch.atan2(imag_out, real_out)
         # Handle the case where imag_out is 0 and real_out is negative to correct ONNX atan2 to match PyTorch
         # In this case, PyTorch returns pi, ONNX returns -pi
         correction_mask = (imag_out == 0) & (real_out < 0)
         phase[correction_mask] = torch.pi
         return magnitude, phase
+
 
     def inverse(self, magnitude: torch.Tensor, phase: torch.Tensor, length=None):
         """

@@ -303,7 +303,7 @@ export function SpeakerSelect({
       // Prepare synthesis request for preview
       const request: EnhancedSynthesisRequest = {
         text: previewText,
-        speaker_id: speakerId,
+        speakerId: speakerId,
         format: PREVIEW_CONFIG.FORMAT,
         trackProgress: false, // No progress tracking for previews
       };
@@ -753,3 +753,4 @@ export function SpeakerSelect({
 // ===== Export =====
 
 export default SpeakerSelect;
+

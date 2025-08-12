@@ -304,7 +304,7 @@ class Generator(nn.Module):
             har_spec, har_phase = self.stft.transform(har_source)
             har = torch.cat([har_spec, har_phase], dim=1)
         for i in range(self.num_upsamples):
-            x = F.leaky_relu(x, negative_slope=0.1)
+            x = F.leaky_relu(x, negative_slope=0.1) 
             x_source = self.noise_convs[i](har)
             x_source = self.noise_res[i](x_source, s)
             x = self.ups[i](x)
@@ -382,7 +382,7 @@ class AdainResBlk1d(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, dim_in, style_dim, dim_out,
+    def __init__(self, dim_in, style_dim, dim_out, 
                  resblock_kernel_sizes,
                  upsample_rates,
                  upsample_initial_channel,
@@ -400,8 +400,8 @@ class Decoder(nn.Module):
         self.F0_conv = weight_norm(nn.Conv1d(1, 1, kernel_size=3, stride=2, groups=1, padding=1))
         self.N_conv = weight_norm(nn.Conv1d(1, 1, kernel_size=3, stride=2, groups=1, padding=1))
         self.asr_res = nn.Sequential(weight_norm(nn.Conv1d(512, 64, kernel_size=1)))
-        self.generator = Generator(style_dim, resblock_kernel_sizes, upsample_rates,
-                                   upsample_initial_channel, resblock_dilation_sizes,
+        self.generator = Generator(style_dim, resblock_kernel_sizes, upsample_rates, 
+                                   upsample_initial_channel, resblock_dilation_sizes, 
                                    upsample_kernel_sizes, gen_istft_n_fft, gen_istft_hop_size, disable_complex=disable_complex)
 
     def forward(self, asr, F0_curve, N, s):

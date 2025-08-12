@@ -15,12 +15,18 @@
 
 import {
   ApiResponse,
-  SynthesisRequest,
   AudioGeneration,
   API_ENDPOINTS,
+  SynthesisRequest,
   type AudioFormat,
 } from '../types/api';
 import { apiClient } from './apiClient';
+
+// Import generated OpenAPI classes for type safety
+import {
+  TTSRequest,
+  OpenAITTSRequest,
+} from '../gen/src';
 
 // ===== Constants =====
 
@@ -123,7 +129,7 @@ export interface SynthesisProgress {
 /**
  * Enhanced synthesis request with voice cloning support
  */
-export interface EnhancedSynthesisRequest extends SynthesisRequest {
+export interface EnhancedSynthesisRequest extends TTSRequest {
   /** Audio file for voice cloning */
   cloning_audio?: File;
   /** Endpoint preference for synthesis */
@@ -430,14 +436,11 @@ export class TTSService {
       this.activeRequests.set(requestId, abortController);
 
       // Prepare synthesis request
-      const synthesisData: SynthesisRequest = {
+      const synthesisData: TTSRequest = {
         text: request.text,
-        speaker_id: request.speaker_id,
-        language_id: request.language_id,
-        style_wav: request.style_wav,
-        speaker_wav: request.speaker_wav,
-        format: request.format || 'wav',
-        speed: request.speed || 1.0,
+        speaker: request.speaker,
+        language: request.language,
+        format: request.format || 'wav'
       };
 
       // Handle voice cloning audio upload
@@ -478,8 +481,8 @@ export class TTSService {
               text: request.text,
               characterCount: textValidation.characterCount,
               synthesisTime,
-              endpoint: request.endpoint || 'legacy',
-              format: request.format || 'wav',
+              endpoint: request.endpoint || 'v1',
+              format: (request.format || 'wav') as AudioFormat,
             },
           },
         };
@@ -513,7 +516,7 @@ export class TTSService {
    * Synthesize with voice cloning using multipart form data
    */
   private async synthesizeWithVoiceCloning(
-    request: SynthesisRequest,
+    request: TTSRequest,
     audioFile: File,
     signal?: AbortSignal
   ): Promise<ApiResponse<AudioGeneration>> {
@@ -524,12 +527,10 @@ export class TTSService {
     const formData = new FormData();
     formData.append('text', request.text);
     
-    if (request.speaker_id) formData.append('speaker_id', request.speaker_id);
-    if (request.language_id) formData.append('language_id', request.language_id);
-    if (request.style_wav) formData.append('style_wav', request.style_wav);
+    if (request.speaker) formData.append('speaker', request.speaker);
+    if (request.language) formData.append('language', request.language);
     if (request.format) formData.append('format', request.format);
-    if (request.speed) formData.append('speed', request.speed.toString());
-    
+
     // Add the audio file for voice cloning
     formData.append('speaker_wav', audioFile);
 
@@ -543,10 +544,22 @@ export class TTSService {
   }
 
   /**
+   * Convert generated TTSRequest to the legacy SynthesisRequest format
+   */
+  private convertTTSRequestToSynthesisRequest(request: TTSRequest): SynthesisRequest {
+    return {
+      text: request.text,
+      speaker_id: request.speakerId || request.speaker,
+      language_id: request.languageId || request.language,
+      format: request.format as 'wav' | 'mp3' | 'opus' | 'aac' | 'flac' | 'pcm' | undefined,
+    };
+  }
+
+  /**
    * Synthesize using specified endpoint
    */
   private async synthesizeWithEndpoint(
-    request: SynthesisRequest,
+    request: TTSRequest,
     endpoint: string = 'legacy',
     signal?: AbortSignal
   ): Promise<ApiResponse<AudioGeneration>> {
@@ -556,16 +569,17 @@ export class TTSService {
       case 'v1':
       case 'legacy':
       default:
-        // Use JSON-based v1 endpoint for text synthesis
-        return await apiClient.synthesizeTextV1(request, config);
+        // Convert to legacy format for existing API client
+        const synthesisRequest = this.convertTTSRequestToSynthesisRequest(request);
+        return await apiClient.synthesizeTextV1(synthesisRequest, config);
       case 'openai':
         // Convert to OpenAI format
-        const openAIRequest = {
+        const openAIRequest: OpenAITTSRequest = {
           model: 'tts-1',
-          voice: request.speaker_id || 'default',
+          voice: request.speaker || 'default',
           input: request.text,
-          response_format: request.format,
-          speed: request.speed,
+          responseFormat: request.format,
+          speed: 1.0, // Default speed since TTSRequest doesn't have speed
         };
         return await apiClient.synthesizeOpenAI(openAIRequest, config);
     }

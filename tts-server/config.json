@@ -1,0 +1,51 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "reload": true,
+    "log_level": "info"
+  },
+  "tts": {
+    "enabled": true,
+    "cache": {
+      "max_memory_mb": 4096,
+      "max_entries": 10,
+      "cleanup_threshold": 0.8,
+      "cache_dir": null
+    },
+    "default_model": "tts_models/multilingual/multi-dataset/xtts_v2",
+    "device": "cpu"
+  },
+  "paths": {
+    "tts_server_dir": "../TTS/server",
+    "frontend_dir": "../TTS/server/frontend",
+    "openapi_spec": "../TTS/server/openapi.yaml",
+    "static_dir": "../TTS/server/static"
+  },
+  "generation": {
+    "auto_generate_on_startup": true,
+    "auto_build_frontend": false,
+    "watch_for_changes": true,
+    "cleanup_generated_files": true
+  },
+  "openapi_generator": {
+    "generator": "typescript-fetch",
+    "config_file": "openapi-generator-config.json",
+    "output_dir": "src/gen",
+    "additional_properties": {
+      "modelPropertyNaming": "camelCase",
+      "supportsES6": true,
+      "typescriptThreePlus": true
+    }
+  },
+  "frontend": {
+    "package_manager": "yarn",
+    "build_command": "build",
+    "install_command": "install"
+  },
+  "development": {
+    "cors_origins": ["*"],
+    "watch_openapi": true,
+    "debug": false
+  }
+}
