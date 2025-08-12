@@ -2,6 +2,9 @@ import importlib
 import os
 from inspect import isclass
 
+# Import Kokoro config explicitly
+from TTS.tts.configs.kokoro_config import KokoroConfig
+
 # import all files under configs/
 # configs_dir = os.path.dirname(__file__)
 # for file in os.listdir(configs_dir):

@@ -412,7 +412,7 @@ class TestTTSServer:
     def test_documentation_endpoints(self, client):
         """Test that API documentation endpoints are available."""
         # Test OpenAPI JSON schema
-        response = client.get("/openapi.json")
+        response = client.get("/openapi.yaml")
         assert response.status_code == 200
         
         schema = response.json()

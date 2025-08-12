@@ -1,0 +1,74 @@
+# Kokoro-82M model files
+# Core files
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/config.json
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v1_0.pth
+
+# American voices (female)
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_alloy.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_aoede.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_bella.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_heart.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_jessica.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_kore.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_nicole.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_nova.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_river.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_sarah.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/af_sky.pt
+
+# American voices (male)
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_adam.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_echo.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_eric.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_fenrir.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_liam.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_michael.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_onyx.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_puck.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/am_santa.pt
+
+# British voices
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/bf_alice.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/bf_emma.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/bf_isabella.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/bf_lily.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/bm_daniel.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/bm_fable.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/bm_george.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/bm_lewis.pt
+
+# Spanish voices
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/ef_dora.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/em_alex.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/em_santa.pt
+
+# French voices
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/ff_siwis.pt
+
+# Hindi voices
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/hf_alpha.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/hf_beta.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/hm_omega.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/hm_psi.pt
+
+# Italian voices
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/if_sara.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/im_nicola.pt
+
+# Japanese voices
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/jf_alpha.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/jf_gongitsune.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/jf_nezumi.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/jf_tebukuro.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/jm_kumo.pt
+
+# Portuguese voices
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/pf_dora.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/pm_alex.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/pm_santa.pt
+
+# Chinese voices
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/zf_xiaobei.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/zf_xiaoni.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/zf_xiaoxiao.pt
+https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/zf_xiaoyi.pt

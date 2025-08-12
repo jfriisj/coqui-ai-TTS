@@ -73,26 +73,26 @@ This task breakdown implements the simple CLI-based system for adding new models
 **Requirements:** DR-1 (Documentation Requirements)
 **Leverage:** Documentation structure from `docs/source/installation.md`
 
-- [ ] 5.1. Create new file `docs/source/adding_models.md` with proper Sphinx formatting
-- [ ] 5.2. Document CLI script usage with complete command examples
-- [ ] 5.3. Add troubleshooting section for common CLI errors
+- [x] 5.1. Create new file `docs/source/adding_models.md` with proper Sphinx formatting
+- [x] 5.2. Document CLI script usage with complete command examples
+- [x] 5.3. Add troubleshooting section for common CLI errors
 
 #### Task 6: Document registry structure and examples
 **Files to modify:** `docs/source/adding_models.md`
 **Requirements:** QA-1 (Usability)
 **Leverage:** Registry examples from `TTS/.models.json`
 
-- [ ] 6.1. Document `.models.json` structure with annotated example
-- [ ] 6.2. Add examples for both Hugging Face and custom model entries
-- [ ] 6.3. Document model naming conventions and organization
+- [x] 6.1. Document `.models.json` structure with annotated example
+- [x] 6.2. Add examples for both Hugging Face and custom model entries
+- [x] 6.3. Document model naming conventions and organization
 
 #### Task 7: Update main README with model addition feature
 **Files to modify:** `README.md`
 **Requirements:** QA-1 (Usability)
 **Leverage:** Existing feature documentation patterns in `README.md`
 
-- [ ] 7.1. Add brief section about model addition capability in features list
-- [ ] 7.2. Add link to detailed documentation in `docs/source/adding_models.md`
+- [x] 7.1. Add brief section about model addition capability in features list
+- [x] 7.2. Add link to detailed documentation in `docs/source/adding_models.md`
 
 #### Task 8: Test model listing integration
 **Files to test:** `TTS/api.py`, `TTS/utils/manage.py`

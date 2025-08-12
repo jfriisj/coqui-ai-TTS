@@ -66,6 +66,7 @@ repository are also still a useful source of information.
 - Tools to curate TTS datasets under ```dataset_analysis/```.
 - Command line and Python APIs to use and test your models.
 - Modular (but not too much) code base enabling easy implementation of new ideas.
+- Easy integration of new model architectures with comprehensive [model addition guide](https://coqui-tts.readthedocs.io/en/latest/adding_models.html).
 
 ## Model Implementations
 ### Spectrogram models
@@ -409,5 +410,54 @@ You can either use your trained model or choose a model from the provided list.
 tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<model_name>" \
     --source_wav <path/to/speaker/wav> --target_wav <path/to/reference/wav>
 ```
+
+#### Kokoro TTS CLI
+
+Kokoro is a high-quality, lightweight TTS model supporting multiple languages. Use the Kokoro CLI for fast synthesis:
+
+- Basic usage:
+  ```sh
+  python -m TTS.tts.layers.kokoro --text "Hello world" -o output.wav
+  ```
+
+- With specific voice and language:
+  ```sh
+  python -m TTS.tts.layers.kokoro --text "Hello world" -o output.wav --voice af_heart -l a
+  ```
+
+- Reading from file:
+  ```sh
+  python -m TTS.tts.layers.kokoro -i input.txt -o output.wav
+  ```
+
+- With speed control and debug output:
+  ```sh
+  python -m TTS.tts.layers.kokoro --text "Hello world" -o output.wav --speed 1.5 --debug
+  ```
+
+- Interactive mode (stdin):
+  ```sh
+  python -m TTS.tts.layers.kokoro -o output.wav
+  ```
+
+**Available Languages:**
+- `a` - American English
+- `b` - British English  
+- `h` - Hindi
+- `e` - Spanish
+- `f` - French
+- `i` - Italian
+- `p` - Brazilian Portuguese
+- `j` - Japanese
+- `z` - Mandarin Chinese
+
+**Common Parameters:**
+- `-t, --text`: Text to synthesize
+- `-i, --input-file`: Path to input text file
+- `-o, --output-file`: Path to output WAV file (required)
+- `-m, --voice`: Voice to use (default: "af_heart")
+- `-l, --language`: Language code
+- `-s, --speed`: Speech speed (default: 1.0)
+- `--debug`: Enable debug output
 
 <!-- end-tts-readme -->

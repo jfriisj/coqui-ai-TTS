@@ -261,7 +261,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",  # Swagger UI
     redoc_url="/redoc",  # ReDoc documentation
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.yaml"
 )
 
 # Add CORS middleware for web frontend
@@ -355,7 +355,7 @@ async def index():
             "description": "Text-to-Speech server with voice cloning, multi-speaker, and multi-lingual support",
             "docs_url": "/docs",
             "redoc_url": "/redoc",
-            "openapi_url": "/openapi.json",
+            "openapi_url": "/openapi.yaml",
             "endpoints": {
                 "health": "/api/v1/health",
                 "models": "/api/v1/models",
@@ -1827,6 +1827,793 @@ def api_v1_models_progress_stream(request: Request):
     except Exception as e:
         logger.error(f"Error creating SSE response: {e}")
         return handle_api_error(f"Failed to create progress stream: {str(e)}", 500)
+
+
+# Enhanced Model Management Endpoints using ModelManager methods
+
+@app.get("/api/v1/models/tts-models", 
+         summary="Get TTS models",
+         description="Get a list of all available TTS models using ModelManager.list_tts_models()")
+def api_v1_models_tts_models(request: Request):
+    """Get all available TTS models using ModelManager.list_tts_models()."""
+    try:
+        tts_models = manager.list_tts_models()
+        return {
+            "models": tts_models,
+            "count": len(tts_models),
+            "type": "tts_models"
+        }
+    except Exception as e:
+        logger.error(f"Error getting TTS models: {e}")
+        return handle_api_error(f"Failed to get TTS models: {str(e)}", 500)
+
+
+@app.get("/api/v1/models/vocoder-models", 
+         summary="Get vocoder models",
+         description="Get a list of all available vocoder models using ModelManager.list_vocoder_models()")
+def api_v1_models_vocoder_models(request: Request):
+    """Get all available vocoder models using ModelManager.list_vocoder_models()."""
+    try:
+        vocoder_models = manager.list_vocoder_models()
+        return {
+            "models": vocoder_models,
+            "count": len(vocoder_models),
+            "type": "vocoder_models"
+        }
+    except Exception as e:
+        logger.error(f"Error getting vocoder models: {e}")
+        return handle_api_error(f"Failed to get vocoder models: {str(e)}", 500)
+
+
+@app.get("/api/v1/models/vc-models", 
+         summary="Get voice conversion models",
+         description="Get a list of all available voice conversion models using ModelManager.list_vc_models()")
+def api_v1_models_vc_models(request: Request):
+    """Get all available voice conversion models using ModelManager.list_vc_models()."""
+    try:
+        vc_models = manager.list_vc_models()
+        return {
+            "models": vc_models,
+            "count": len(vc_models),
+            "type": "voice_conversion_models"
+        }
+    except Exception as e:
+        logger.error(f"Error getting VC models: {e}")
+        return handle_api_error(f"Failed to get VC models: {str(e)}", 500)
+
+
+@app.get("/api/v1/models/info/{model_path:path}", 
+         summary="Get detailed model information",
+         description="Get detailed information about a specific model using ModelManager.model_info_by_full_name()")
+def api_v1_models_info(model_path: str, request: Request):
+    """Get detailed information about a specific model."""
+    try:
+        # Capture the printed output from model_info_by_full_name
+        import io
+        import contextlib
+        
+        captured_output = io.StringIO()
+        with contextlib.redirect_stdout(captured_output):
+            try:
+                manager.model_info_by_full_name(model_path)
+            except Exception as info_e:
+                logger.warning(f"Could not get detailed info for model {model_path}: {info_e}")
+                
+        model_info_text = captured_output.getvalue()
+        
+        # Parse the captured output and extract meaningful information
+        info_lines = model_info_text.strip().split('\n')
+        model_details = {}
+        
+        for line in info_lines:
+            if ': ' in line:
+                key, value = line.split(': ', 1)
+                model_details[key.strip().lower().replace(' ', '_')] = value.strip()
+        
+        # Add basic parsed information from model path
+        path_parts = model_path.split('/')
+        basic_info = {
+            "model_path": model_path,
+            "model_type": path_parts[0] if len(path_parts) > 0 else "unknown",
+            "language": path_parts[1] if len(path_parts) > 1 else "unknown", 
+            "dataset": path_parts[2] if len(path_parts) > 2 else "unknown",
+            "architecture": path_parts[3] if len(path_parts) > 3 else "unknown"
+        }
+        
+        # Combine basic info with detailed parsed info
+        result = {**basic_info, **model_details}
+        
+        # Add availability check
+        try:
+            model_item, model_full_name, model, md5sum = manager._set_model_item(model_path)
+            result["available"] = True
+            result["model_url"] = model_item.get("model_url", "")
+            result["license"] = model_item.get("license", "")
+            result["default_vocoder"] = model_item.get("default_vocoder")
+        except Exception as e:
+            result["available"] = False
+            result["error"] = str(e)
+            
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting model info for {model_path}: {e}")
+        return handle_api_error(f"Failed to get model info: {str(e)}", 500)
+
+
+@app.get("/api/v1/models/all-languages", 
+         summary="Get all supported languages",
+         description="Get a list of all supported languages using ModelManager.list_langs()")
+def api_v1_models_all_languages(request: Request):
+    """Get all supported languages using ModelManager.list_langs()."""
+    try:
+        # Capture the printed output from list_langs
+        import io
+        import contextlib
+        
+        captured_output = io.StringIO()
+        with contextlib.redirect_stdout(captured_output):
+            manager.list_langs()
+            
+        langs_text = captured_output.getvalue()
+        
+        # Parse the captured output
+        languages = []
+        for line in langs_text.strip().split('\n'):
+            if '/' in line and line.strip():
+                parts = line.strip().split('/')
+                if len(parts) >= 2:
+                    model_type = parts[0].strip()
+                    lang = parts[1].strip()
+                    languages.append({
+                        "model_type": model_type,
+                        "language": lang,
+                        "full_path": line.strip()
+                    })
+        
+        # Group by model type
+        grouped_languages = {}
+        for lang_info in languages:
+            model_type = lang_info["model_type"]
+            if model_type not in grouped_languages:
+                grouped_languages[model_type] = []
+            if lang_info["language"] not in [l["language"] for l in grouped_languages[model_type]]:
+                grouped_languages[model_type].append({
+                    "language": lang_info["language"]
+                })
+        
+        return {
+            "languages_by_type": grouped_languages,
+            "all_languages": list(set([l["language"] for l in languages])),
+            "total_count": len(languages)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting languages: {e}")
+        return handle_api_error(f"Failed to get languages: {str(e)}", 500)
+
+
+@app.get("/api/v1/models/datasets", 
+         summary="Get available datasets",
+         description="Get a list of all available datasets using ModelManager.list_datasets()")
+def api_v1_models_datasets(request: Request):
+    """Get all available datasets using ModelManager.list_datasets()."""
+    try:
+        # Capture the printed output from list_datasets
+        import io
+        import contextlib
+        
+        captured_output = io.StringIO()
+        with contextlib.redirect_stdout(captured_output):
+            manager.list_datasets()
+            
+        datasets_text = captured_output.getvalue()
+        
+        # Parse the captured output
+        datasets = []
+        for line in datasets_text.strip().split('\n'):
+            if '/' in line and line.strip():
+                parts = line.strip().split('/')
+                if len(parts) >= 3:
+                    model_type = parts[0].strip()
+                    lang = parts[1].strip()
+                    dataset = parts[2].strip()
+                    datasets.append({
+                        "model_type": model_type,
+                        "language": lang,
+                        "dataset": dataset,
+                        "full_path": line.strip()
+                    })
+        
+        # Group by model type and language
+        grouped_datasets = {}
+        for dataset_info in datasets:
+            model_type = dataset_info["model_type"]
+            lang = dataset_info["language"]
+            
+            if model_type not in grouped_datasets:
+                grouped_datasets[model_type] = {}
+            if lang not in grouped_datasets[model_type]:
+                grouped_datasets[model_type][lang] = []
+                
+            grouped_datasets[model_type][lang].append({
+                "dataset": dataset_info["dataset"]
+            })
+        
+        return {
+            "datasets_by_type_and_language": grouped_datasets,
+            "all_datasets": list(set([d["dataset"] for d in datasets])),
+            "total_count": len(datasets)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting datasets: {e}")
+        return handle_api_error(f"Failed to get datasets: {str(e)}", 500)
+
+
+# Model Capability Discovery Endpoints using TTS API properties
+
+@app.get("/api/v1/models/capabilities", 
+         summary="Get current model capabilities",
+         description="Get comprehensive capabilities of the currently loaded model using TTS API properties")
+def api_v1_models_capabilities(request: Request):
+    """Get comprehensive capabilities of the currently loaded model."""
+    try:
+        current_model = global_model_state.current_model
+        if not current_model or not current_model.tts_instance:
+            raise HTTPException(status_code=404, detail={"error": "No model currently loaded"})
+        
+        tts_instance = current_model.tts_instance
+        
+        # Get basic capabilities from model state
+        capabilities = {
+            "model_name": current_model.model_name,
+            "is_multi_speaker": current_model.is_multi_speaker,
+            "is_multi_lingual": current_model.is_multi_lingual,
+        }
+        
+        # Get speaker information using TTS API properties
+        if hasattr(tts_instance, 'speakers') and tts_instance.speakers:
+            capabilities["speakers"] = tts_instance.speakers
+            capabilities["speakers_count"] = len(tts_instance.speakers)
+        else:
+            capabilities["speakers"] = []
+            capabilities["speakers_count"] = 0
+        
+        # Get language information using TTS API properties
+        if hasattr(tts_instance, 'languages') and tts_instance.languages:
+            capabilities["languages"] = tts_instance.languages
+            capabilities["languages_count"] = len(tts_instance.languages)
+        else:
+            capabilities["languages"] = []
+            capabilities["languages_count"] = 0
+        
+        # Check advanced capabilities from synthesizer config
+        if hasattr(tts_instance, 'synthesizer') and tts_instance.synthesizer:
+            synthesizer = tts_instance.synthesizer
+            
+            # Check for voice cloning support
+            if (hasattr(synthesizer, 'tts_config') and 
+                hasattr(synthesizer.tts_config, 'supports_cloning')):
+                capabilities["supports_voice_cloning"] = synthesizer.tts_config.supports_cloning
+            else:
+                capabilities["supports_voice_cloning"] = "xtts" in current_model.model_name.lower()
+            
+            # Check for vocoder information
+            if hasattr(synthesizer, 'vocoder_model') and synthesizer.vocoder_model:
+                capabilities["has_vocoder"] = True
+                capabilities["vocoder_type"] = type(synthesizer.vocoder_model).__name__
+            else:
+                capabilities["has_vocoder"] = False
+                capabilities["vocoder_type"] = None
+            
+            # Check for speaker encoder
+            if (hasattr(synthesizer, 'tts_model') and 
+                hasattr(synthesizer.tts_model, 'speaker_manager') and 
+                synthesizer.tts_model.speaker_manager):
+                capabilities["has_speaker_encoder"] = True
+                sm = synthesizer.tts_model.speaker_manager
+                if hasattr(sm, 'num_speakers'):
+                    capabilities["speaker_manager_speakers"] = sm.num_speakers
+            else:
+                capabilities["has_speaker_encoder"] = False
+        
+        # Check for voice conversion capability
+        capabilities["supports_voice_conversion"] = (
+            hasattr(tts_instance, 'voice_converter') and 
+            tts_instance.voice_converter is not None
+        )
+        
+        return capabilities
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting model capabilities: {e}")
+        return handle_api_error(f"Failed to get model capabilities: {str(e)}", 500)
+
+
+@app.get("/api/v1/models/download/{model_path:path}", 
+         summary="Download model",
+         description="Download and cache a specific model using ModelManager.download_model()")
+def api_v1_models_download(model_path: str, request: Request):
+    """Download and cache a specific model."""
+    try:
+        # Check if download is already in progress
+        if hasattr(global_model_state, '_downloading_models'):
+            if model_path in global_model_state._downloading_models:
+                return handle_api_error("Model download already in progress", 409)
+        else:
+            global_model_state._downloading_models = set()
+        
+        # Mark as downloading
+        global_model_state._downloading_models.add(model_path)
+        
+        try:
+            # Use ModelManager to download the model
+            model_file_path, config_path, model_item = manager.download_model(model_path)
+            
+            # Get download information
+            result = {
+                "model_path": model_path,
+                "downloaded": True,
+                "model_file_path": str(model_file_path) if model_file_path else None,
+                "config_path": str(config_path) if config_path else None,
+                "model_info": {
+                    "model_url": model_item.get("model_url", ""),
+                    "license": model_item.get("license", ""),
+                    "default_vocoder": model_item.get("default_vocoder"),
+                    "model_type": model_item.get("model_type", "")
+                }
+            }
+            
+            return result
+            
+        finally:
+            # Always remove from downloading set
+            global_model_state._downloading_models.discard(model_path)
+        
+    except Exception as e:
+        logger.error(f"Error downloading model {model_path}: {e}")
+        return handle_api_error(f"Failed to download model: {str(e)}", 500)
+
+
+# Enhanced Synthesis Endpoints with full parameter support
+
+class EnhancedTTSRequest(BaseModel):
+    text: str = Field(..., description="Text to synthesize", min_length=1, max_length=5000)
+    speaker_name: Optional[str] = Field(None, description="Speaker name for multi-speaker models")
+    language_name: Optional[str] = Field(None, description="Language name for multilingual models")
+    speaker_wav: Optional[str] = Field(None, description="Path or URL to speaker wav file for voice cloning")
+    style_wav: Optional[str] = Field(None, description="Path or URL to style wav file for GST models")
+    style_text: Optional[str] = Field(None, description="Transcription of style_wav for Capacitron models")
+    source_wav: Optional[str] = Field(None, description="Source wav file for voice conversion")
+    source_speaker_name: Optional[str] = Field(None, description="Source speaker name for voice conversion")
+    split_sentences: bool = Field(True, description="Split text into sentences for synthesis")
+    voice_dir: Optional[str] = Field(None, description="Directory for cached voices")
+    format: str = Field("wav", description="Output audio format", pattern="^(wav|mp3|opus|aac|flac|pcm)$")
+
+
+@app.post("/api/v1/tts/enhanced", 
+          summary="Enhanced TTS synthesis",
+          description="Advanced TTS synthesis with full parameter support from Synthesizer.tts() method")
+async def api_v1_tts_enhanced(request: EnhancedTTSRequest):
+    """Enhanced TTS synthesis exposing all parameters from Synthesizer.tts() method."""
+    try:
+        current_model = global_model_state.current_model
+        if not current_model or not current_model.tts_instance:
+            raise HTTPException(status_code=503, detail={"error": "No TTS model is currently loaded"})
+        
+        # Create synthesis ID for tracking
+        synthesis_id = str(uuid.uuid4())[:8]
+        
+        try:
+            # Register synthesis operation
+            global_model_state.register_synthesis(synthesis_id)
+            
+            with lock:
+                logger.info("Enhanced TTS synthesis: %s (synthesis_id: %s)", request.text, synthesis_id)
+                logger.info("Parameters: speaker_name=%s, language_name=%s, speaker_wav=%s, style_wav=%s, style_text=%s, source_wav=%s, source_speaker_name=%s, split_sentences=%s, voice_dir=%s", 
+                           request.speaker_name, request.language_name, request.speaker_wav, 
+                           request.style_wav, request.style_text, request.source_wav, 
+                           request.source_speaker_name, request.split_sentences, request.voice_dir)
+                
+                # Prepare TTS parameters using all available parameters
+                tts_kwargs = {
+                    "text": request.text,
+                    "speaker_name": request.speaker_name or "",
+                    "language_name": request.language_name or "",
+                    "speaker_wav": request.speaker_wav,
+                    "style_wav": request.style_wav,
+                    "style_text": request.style_text,
+                    "source_wav": request.source_wav,
+                    "source_speaker_name": request.source_speaker_name,
+                    "split_sentences": request.split_sentences
+                }
+                
+                # Add voice_dir if specified
+                if request.voice_dir:
+                    tts_kwargs["voice_dir"] = request.voice_dir
+                
+                # Remove None values to avoid issues
+                tts_kwargs = {k: v for k, v in tts_kwargs.items() if v is not None}
+                
+                try:
+                    wavs = current_model.tts_instance.synthesizer.tts(**tts_kwargs)
+                except Exception as e:
+                    logger.error("Enhanced TTS synthesis failed: %s", str(e))
+                    raise HTTPException(status_code=500, detail={"error": f"TTS synthesis failed: {str(e)}"})
+                
+                # Convert to requested format and return
+                out = io.BytesIO()
+                current_model.tts_instance.synthesizer.save_wav(wavs, out)
+                out.seek(0)
+                
+                media_type_map = {
+                    "wav": "audio/wav",
+                    "mp3": "audio/mpeg", 
+                    "opus": "audio/opus",
+                    "aac": "audio/aac",
+                    "flac": "audio/flac",
+                    "pcm": "audio/pcm"
+                }
+                
+                media_type = media_type_map.get(request.format, "audio/wav")
+                
+                return StreamingResponse(out, media_type=media_type)
+                
+        finally:
+            # Always unregister synthesis operation
+            global_model_state.unregister_synthesis(synthesis_id)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Enhanced TTS synthesis error: %s", str(e))
+        raise HTTPException(status_code=500, detail={"error": f"Enhanced TTS synthesis error: {str(e)}"})
+
+
+class BatchTTSRequest(BaseModel):
+    texts: List[str] = Field(..., description="List of texts to synthesize", min_items=1, max_items=10)
+    speaker_name: Optional[str] = Field(None, description="Speaker name for multi-speaker models")
+    language_name: Optional[str] = Field(None, description="Language name for multilingual models") 
+    speaker_wav: Optional[str] = Field(None, description="Path or URL to speaker wav file for voice cloning")
+    split_sentences: bool = Field(True, description="Split text into sentences for synthesis")
+    format: str = Field("wav", description="Output audio format", pattern="^(wav|mp3|opus|aac|flac|pcm)$")
+    concatenate: bool = Field(True, description="Concatenate all audio files into one")
+
+
+@app.post("/api/v1/tts/batch", 
+          summary="Batch TTS synthesis",
+          description="Synthesize multiple texts in a single request")
+async def api_v1_tts_batch(request: BatchTTSRequest):
+    """Batch TTS synthesis for processing multiple texts efficiently."""
+    try:
+        current_model = global_model_state.current_model
+        if not current_model or not current_model.tts_instance:
+            raise HTTPException(status_code=503, detail={"error": "No TTS model is currently loaded"})
+        
+        # Create synthesis ID for tracking
+        synthesis_id = str(uuid.uuid4())[:8]
+        
+        try:
+            # Register synthesis operation
+            global_model_state.register_synthesis(synthesis_id)
+            
+            with lock:
+                logger.info("Batch TTS synthesis: %d texts (synthesis_id: %s)", len(request.texts), synthesis_id)
+                
+                all_wavs = []
+                
+                for i, text in enumerate(request.texts):
+                    logger.info("Processing text %d/%d: %s", i+1, len(request.texts), text[:50])
+                    
+                    # Prepare TTS parameters
+                    tts_kwargs = {
+                        "text": text,
+                        "speaker_name": request.speaker_name or "",
+                        "language_name": request.language_name or "",
+                        "speaker_wav": request.speaker_wav,
+                        "split_sentences": request.split_sentences
+                    }
+                    
+                    # Remove None values
+                    tts_kwargs = {k: v for k, v in tts_kwargs.items() if v is not None}
+                    
+                    try:
+                        wavs = current_model.tts_instance.synthesizer.tts(**tts_kwargs)
+                        all_wavs.append(wavs)
+                        
+                        # Add silence between texts if concatenating
+                        if request.concatenate and i < len(request.texts) - 1:
+                            # Add 0.5 seconds of silence (assuming 22050 Hz sample rate)
+                            silence = [0] * 11025
+                            all_wavs.append(silence)
+                            
+                    except Exception as e:
+                        logger.error("Batch TTS synthesis failed for text %d: %s", i+1, str(e))
+                        raise HTTPException(status_code=500, detail={
+                            "error": f"TTS synthesis failed for text {i+1}: {str(e)}",
+                            "text_index": i,
+                            "text_preview": text[:100]
+                        })
+                
+                # Combine all audio
+                if request.concatenate:
+                    combined_wavs = []
+                    for wavs in all_wavs:
+                        combined_wavs.extend(wavs)
+                    final_wavs = combined_wavs
+                else:
+                    # For now, still concatenate - individual file handling would need zip response
+                    combined_wavs = []
+                    for wavs in all_wavs:
+                        combined_wavs.extend(wavs)
+                    final_wavs = combined_wavs
+                
+                # Convert to requested format and return
+                out = io.BytesIO()
+                current_model.tts_instance.synthesizer.save_wav(final_wavs, out)
+                out.seek(0)
+                
+                media_type_map = {
+                    "wav": "audio/wav",
+                    "mp3": "audio/mpeg", 
+                    "opus": "audio/opus",
+                    "aac": "audio/aac",
+                    "flac": "audio/flac",
+                    "pcm": "audio/pcm"
+                }
+                
+                media_type = media_type_map.get(request.format, "audio/wav")
+                
+                return StreamingResponse(out, media_type=media_type)
+                
+        finally:
+            # Always unregister synthesis operation
+            global_model_state.unregister_synthesis(synthesis_id)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Batch TTS synthesis error: %s", str(e))
+        raise HTTPException(status_code=500, detail={"error": f"Batch TTS synthesis error: {str(e)}"})
+
+
+# Voice Conversion Endpoints using TTS API methods
+
+class VoiceConversionRequest(BaseModel):
+    source_wav: str = Field(..., description="Path or URL to source wav file")
+    target_wav: Optional[str] = Field(None, description="Path or URL to target wav file for voice cloning")
+    speaker: Optional[str] = Field(None, description="Custom target speaker ID to cache the cloned voice")
+    voice_dir: Optional[str] = Field(None, description="Cache folder for cloned voices")
+    source_speaker: Optional[str] = Field(None, description="Source speaker ID (only needed for embedding-based models)")
+    format: str = Field("wav", description="Output audio format", pattern="^(wav|mp3|opus|aac|flac|pcm)$")
+
+
+@app.post("/api/v1/voice-convert/convert", 
+          summary="Voice conversion",
+          description="Convert source voice to target speaker using TTS API voice_conversion() method")
+async def api_v1_voice_convert(request: VoiceConversionRequest):
+    """Voice conversion using TTS API voice_conversion() method."""
+    try:
+        current_model = global_model_state.current_model
+        if not current_model or not current_model.tts_instance:
+            raise HTTPException(status_code=503, detail={"error": "No TTS model is currently loaded"})
+        
+        # Create conversion ID for tracking
+        conversion_id = str(uuid.uuid4())[:8]
+        
+        try:
+            # Register synthesis operation (reusing synthesis tracking)
+            global_model_state.register_synthesis(conversion_id)
+            
+            with lock:
+                logger.info("Voice conversion: source=%s, target=%s, speaker=%s (conversion_id: %s)", 
+                           request.source_wav, request.target_wav, request.speaker, conversion_id)
+                
+                # Prepare voice conversion parameters
+                vc_kwargs = {
+                    "source_wav": request.source_wav,
+                    "target_wav": request.target_wav,
+                    "speaker": request.speaker,
+                    "voice_dir": request.voice_dir,
+                    "source_speaker": request.source_speaker
+                }
+                
+                # Remove None values
+                vc_kwargs = {k: v for k, v in vc_kwargs.items() if v is not None}
+                
+                try:
+                    wav = current_model.tts_instance.voice_conversion(**vc_kwargs)
+                except Exception as e:
+                    logger.error("Voice conversion failed: %s", str(e))
+                    raise HTTPException(status_code=500, detail={"error": f"Voice conversion failed: {str(e)}"})
+                
+                # Convert to requested format and return
+                out = io.BytesIO()
+                current_model.tts_instance.synthesizer.save_wav(wav, out)
+                out.seek(0)
+                
+                media_type_map = {
+                    "wav": "audio/wav",
+                    "mp3": "audio/mpeg", 
+                    "opus": "audio/opus",
+                    "aac": "audio/aac",
+                    "flac": "audio/flac",
+                    "pcm": "audio/pcm"
+                }
+                
+                media_type = media_type_map.get(request.format, "audio/wav")
+                
+                return StreamingResponse(out, media_type=media_type)
+                
+        finally:
+            # Always unregister synthesis operation
+            global_model_state.unregister_synthesis(conversion_id)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Voice conversion error: %s", str(e))
+        raise HTTPException(status_code=500, detail={"error": f"Voice conversion error: {str(e)}"})
+
+
+class TTSWithVCRequest(BaseModel):
+    text: str = Field(..., description="Text to synthesize", min_length=1, max_length=5000)
+    language: Optional[str] = Field(None, description="Language ID for multilingual models")
+    speaker_wav: str = Field(..., description="Path or URL to speaker wav file for voice cloning")
+    speaker: Optional[str] = Field(None, description="Speaker name for multi-speaker models") 
+    split_sentences: bool = Field(True, description="Split text into sentences for synthesis")
+    format: str = Field("wav", description="Output audio format", pattern="^(wav|mp3|opus|aac|flac|pcm)$")
+
+
+@app.post("/api/v1/tts/with-voice-conversion", 
+          summary="TTS with voice conversion",
+          description="Combine TTS with voice conversion using TTS API tts_with_vc() method")
+async def api_v1_tts_with_vc(request: TTSWithVCRequest):
+    """TTS with voice conversion using TTS API tts_with_vc() method."""
+    try:
+        current_model = global_model_state.current_model
+        if not current_model or not current_model.tts_instance:
+            raise HTTPException(status_code=503, detail={"error": "No TTS model is currently loaded"})
+        
+        # Create synthesis ID for tracking
+        synthesis_id = str(uuid.uuid4())[:8]
+        
+        try:
+            # Register synthesis operation
+            global_model_state.register_synthesis(synthesis_id)
+            
+            with lock:
+                logger.info("TTS with VC: text=%s, speaker_wav=%s (synthesis_id: %s)", 
+                           request.text, request.speaker_wav, synthesis_id)
+                
+                # Prepare TTS with VC parameters
+                tts_vc_kwargs = {
+                    "text": request.text,
+                    "language": request.language,
+                    "speaker_wav": request.speaker_wav,
+                    "speaker": request.speaker,
+                    "split_sentences": request.split_sentences
+                }
+                
+                # Remove None values
+                tts_vc_kwargs = {k: v for k, v in tts_vc_kwargs.items() if v is not None}
+                
+                try:
+                    wav = current_model.tts_instance.tts_with_vc(**tts_vc_kwargs)
+                except Exception as e:
+                    logger.error("TTS with VC failed: %s", str(e))
+                    raise HTTPException(status_code=500, detail={"error": f"TTS with VC failed: {str(e)}"})
+                
+                # Convert to requested format and return
+                out = io.BytesIO()
+                current_model.tts_instance.voice_converter.save_wav(wav, out)
+                out.seek(0)
+                
+                media_type_map = {
+                    "wav": "audio/wav",
+                    "mp3": "audio/mpeg", 
+                    "opus": "audio/opus",
+                    "aac": "audio/aac",
+                    "flac": "audio/flac",
+                    "pcm": "audio/pcm"
+                }
+                
+                media_type = media_type_map.get(request.format, "audio/wav")
+                
+                return StreamingResponse(out, media_type=media_type)
+                
+        finally:
+            # Always unregister synthesis operation
+            global_model_state.unregister_synthesis(synthesis_id)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("TTS with VC error: %s", str(e))
+        raise HTTPException(status_code=500, detail={"error": f"TTS with VC error: {str(e)}"})
+
+
+# Utility Endpoints using Synthesizer methods
+
+class TextPreprocessingRequest(BaseModel):
+    text: str = Field(..., description="Text to preprocess", min_length=1, max_length=10000)
+    language: str = Field("en", description="Language code for sentence segmentation")
+
+
+@app.post("/api/v1/utils/split-sentences", 
+          summary="Split text into sentences", 
+          description="Split input text into sentences using Synthesizer.split_into_sentences() method")
+def api_v1_utils_split_sentences(request: TextPreprocessingRequest):
+    """Split text into sentences using Synthesizer.split_into_sentences() method."""
+    try:
+        current_model = global_model_state.current_model
+        if not current_model or not current_model.tts_instance:
+            raise HTTPException(status_code=503, detail={"error": "No TTS model is currently loaded"})
+        
+        synthesizer = current_model.tts_instance.synthesizer
+        
+        # Use the synthesizer's sentence splitting method
+        sentences = synthesizer.split_into_sentences(request.text)
+        
+        return {
+            "original_text": request.text,
+            "sentences": sentences,
+            "sentence_count": len(sentences),
+            "language": request.language
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Text preprocessing error: %s", str(e))
+        return handle_api_error(f"Text preprocessing failed: {str(e)}", 500)
+
+
+@app.get("/api/v1/utils/model-file-info", 
+         summary="Get model file information",
+         description="Get information about currently loaded model files")
+def api_v1_utils_model_file_info(request: Request):
+    """Get information about currently loaded model files."""
+    try:
+        current_model = global_model_state.current_model
+        if not current_model or not current_model.tts_instance:
+            raise HTTPException(status_code=404, detail={"error": "No model currently loaded"})
+        
+        synthesizer = current_model.tts_instance.synthesizer
+        
+        model_info = {
+            "model_name": current_model.model_name,
+            "tts_checkpoint": synthesizer.tts_checkpoint,
+            "tts_config_path": synthesizer.tts_config_path,
+            "vocoder_checkpoint": synthesizer.vocoder_checkpoint,
+            "vocoder_config": synthesizer.vocoder_config,
+            "encoder_checkpoint": synthesizer.encoder_checkpoint,
+            "encoder_config": synthesizer.encoder_config,
+            "vc_checkpoint": synthesizer.vc_checkpoint,
+            "vc_config": synthesizer.vc_config,
+            "use_cuda": synthesizer.use_cuda
+        }
+        
+        # Add model type information
+        if synthesizer.tts_model:
+            model_info["tts_model_type"] = type(synthesizer.tts_model).__name__
+        
+        if synthesizer.vocoder_model:
+            model_info["vocoder_model_type"] = type(synthesizer.vocoder_model).__name__
+        
+        if synthesizer.vc_model:
+            model_info["vc_model_type"] = type(synthesizer.vc_model).__name__
+        
+        return model_info
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Model file info error: %s", str(e))
+        return handle_api_error(f"Failed to get model file info: {str(e)}", 500)
 
 
 @app.get('/{path:path}', include_in_schema=False)
