@@ -3,15 +3,14 @@
 import asyncio
 import io
 import uuid
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
-from pathlib import Path
 import torch
 import torchaudio
 
 from TTS.server.services.base_service import BaseService, ServiceResult
-from TTS.server.model_state import get_global_model_state, GlobalModelState
-from TTS.server.error_handlers import handle_tts_error, create_model_loading_error
+from TTS.server.services.model_state import get_global_model_state, GlobalModelState
+from TTS.server.services.error_handlers import handle_tts_error
 
 
 @dataclass

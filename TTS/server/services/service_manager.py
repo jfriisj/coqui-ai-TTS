@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from TTS.server.services.base_service import BaseService, ServiceResult
 from TTS.server.services.synthesis_service import SynthesisService
 from TTS.server.services.model_management_service import ModelManagementService
-from TTS.server.model_cache import ModelCacheManager
+from TTS.server.services.model_cache import ModelCacheManager
 
 logger = logging.getLogger(__name__)
 

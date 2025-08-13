@@ -1,7 +1,7 @@
 """Server configuration classes for Coqui TTS."""
 
 from dataclasses import asdict, dataclass, field
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from coqpit import Coqpit, check_argument
 
@@ -258,6 +258,98 @@ class SSEConnectionConfig(Coqpit):
 
 
 @dataclass
+class OpenAPIServerConfig(Coqpit):
+    """Configuration for OpenAPI-first TTS server implementation.
+
+    Args:
+        openapi_spec_path (str):
+            Path to the OpenAPI specification file. Defaults to "openapi.yaml".
+
+        strict_validation (bool):
+            Enable strict validation of OpenAPI specification during startup.
+            When True, any validation errors will prevent server startup.
+            Defaults to True.
+
+        require_all_endpoints (bool):
+            Require all endpoints defined in OpenAPI spec to be successfully
+            registered. When True, missing endpoints will prevent startup.
+            Defaults to True.
+
+        auto_generate_missing (bool):
+            Automatically generate missing API components (models, endpoints)
+            from OpenAPI specification when they are not found. Defaults to True.
+
+        generation_timeout_seconds (int):
+            Maximum time in seconds to wait for OpenAPI component generation
+            before timing out. Defaults to 60.
+
+        force_regeneration (bool):
+            Force regeneration of API components even if they already exist.
+            Useful for ensuring components are up-to-date with spec changes.
+            Defaults to False.
+
+        api_only_mode (bool):
+            Enable API-only mode, disabling frontend asset serving and 
+            focusing purely on REST API endpoints. Defaults to True.
+
+        enable_openapi_docs (bool):
+            Enable OpenAPI documentation serving at /docs endpoint.
+            Provides Swagger UI interface for API exploration. Defaults to True.
+
+        enable_redoc_docs (bool):
+            Enable ReDoc documentation serving at /redoc endpoint.
+            Provides alternative documentation interface. Defaults to True.
+
+        cors_origins (List[str]):
+            List of allowed CORS origins for cross-origin API requests.
+            Empty list allows no cross-origin requests. Defaults to empty list.
+
+        model_service_required (bool):
+            Whether ModelManagementService is required for server operation.
+            When True, server won't start without healthy model service.
+            Defaults to True.
+
+        health_check_interval_seconds (int):
+            Interval in seconds between health checks of integrated services.
+            Used for monitoring service status and availability. Defaults to 30.
+
+        graceful_shutdown_timeout_seconds (int):
+            Maximum time in seconds to wait for graceful shutdown of services
+            before forcing termination. Defaults to 30.
+    """
+
+    openapi_spec_path: str = "openapi.yaml"
+    strict_validation: bool = True
+    require_all_endpoints: bool = True
+    auto_generate_missing: bool = True
+    generation_timeout_seconds: int = 60
+    force_regeneration: bool = False
+    api_only_mode: bool = True
+    enable_openapi_docs: bool = True
+    enable_redoc_docs: bool = True
+    cors_origins: list = field(default_factory=list)
+    model_service_required: bool = True
+    health_check_interval_seconds: int = 30
+    graceful_shutdown_timeout_seconds: int = 30
+
+    def check_values(self) -> None:
+        """Check config fields."""
+        c = asdict(self)
+        super().check_values()
+        check_argument("generation_timeout_seconds", c, restricted=True, min_val=10, max_val=600)
+        check_argument("health_check_interval_seconds", c, restricted=True, min_val=5, max_val=300)
+        check_argument("graceful_shutdown_timeout_seconds", c, restricted=True, min_val=5, max_val=300)
+        
+        # Validate openapi_spec_path is not empty
+        if not c["openapi_spec_path"] or not c["openapi_spec_path"].strip():
+            raise ValueError("openapi_spec_path cannot be empty")
+            
+        # Validate cors_origins is a list
+        if not isinstance(c["cors_origins"], list):
+            raise ValueError("cors_origins must be a list of strings")
+
+
+@dataclass
 class ServerConfig(Coqpit):
     """Main server configuration containing all subsystem configurations.
 
@@ -273,6 +365,9 @@ class ServerConfig(Coqpit):
 
         sse_connection (SSEConnectionConfig):
             Configuration for Server-Sent Events connections.
+
+        openapi_server (OpenAPIServerConfig):
+            Configuration for OpenAPI-first server implementation.
 
         debug_mode (bool):
             Enable debug mode with additional logging and validation. 
@@ -295,6 +390,7 @@ class ServerConfig(Coqpit):
     progress: ProgressConfig = field(default_factory=ProgressConfig)
     memory_management: MemoryManagementConfig = field(default_factory=MemoryManagementConfig)
     sse_connection: SSEConnectionConfig = field(default_factory=SSEConnectionConfig)
+    openapi_server: OpenAPIServerConfig = field(default_factory=OpenAPIServerConfig)
     
     debug_mode: bool = False
     enable_metrics: bool = True
@@ -322,6 +418,8 @@ class ServerConfig(Coqpit):
             self.memory_management.check_values()
         if self.sse_connection:
             self.sse_connection.check_values()
+        if self.openapi_server:
+            self.openapi_server.check_values()
 
 
 def create_default_server_config() -> ServerConfig:

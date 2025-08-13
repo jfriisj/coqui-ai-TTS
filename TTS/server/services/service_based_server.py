@@ -1,16 +1,14 @@
 """Enhanced TTS server using service architecture."""
 
-import asyncio
-import io
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from TTS.server.services.service_manager import get_service_manager
 from TTS.server.services.synthesis_service import SynthesisRequest, SynthesisResponse
 from TTS.server.services.model_management_service import ModelLoadRequest
-from TTS.server.model_cache import ModelCacheManager
+from TTS.server.services.model_cache import ModelCacheManager
 
 
 # Pydantic models for API
@@ -319,7 +317,7 @@ def create_service_based_app(cache_manager: Optional[ModelCacheManager] = None) 
 # For backward compatibility and testing
 if __name__ == "__main__":
     import uvicorn
-    from TTS.server.model_cache import ModelCacheManager
+    from TTS.server.services.model_cache import ModelCacheManager
     
     # Create cache manager
     cache_manager = ModelCacheManager(

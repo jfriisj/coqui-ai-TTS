@@ -2,14 +2,13 @@
 
 import asyncio
 import time
-from typing import Optional, Dict, Any, List
-from dataclasses import dataclass, field
-from pathlib import Path
+from typing import Optional, Dict, Any
+from dataclasses import dataclass
 
 from TTS.server.services.base_service import BaseService, ServiceResult
-from TTS.server.model_state import get_global_model_state, GlobalModelState
-from TTS.server.model_cache import ModelCacheManager
-from TTS.server.model_registry import ModelRegistry, get_model_registry
+from TTS.server.services.model_state import get_global_model_state, GlobalModelState
+from TTS.server.services.model_cache import ModelCacheManager
+from TTS.server.services.model_registry import ModelRegistry, get_model_registry
 from TTS.utils.manage import ModelManager
 from TTS.api import TTS
 

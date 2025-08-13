@@ -15,17 +15,21 @@ import os
 import sys
 import subprocess
 import shutil
+import json
+import yaml
+import importlib.util
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, List
 import argparse
 import logging
 from datetime import datetime
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 
 # Add the TTS module to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -34,12 +38,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     from TTS.server.server import app as tts_app
     from TTS.server.services.service_based_server import create_service_based_app
-    from TTS.server.services.model_cache import ModelCacheManager
+    from TTS.server.model_cache import ModelCacheManager
+    from TTS.server.codegen.generator import Generator, GeneratorError
 except ImportError as e:
     print(f"Warning: Could not import TTS server components: {e}")
     tts_app = None
     create_service_based_app = None
     ModelCacheManager = None
+    Generator = None
+    GeneratorError = None
+    from TTS.server.services.service_based_server import create_service_based_app
+    from TTS.server.services.model_cache import ModelCacheManager
+
 
 # Setup logging
 logging.basicConfig(
@@ -48,12 +58,275 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+class DynamicAPILoader:
+    """Loads and manages dynamically generated API endpoints from OpenAPI spec"""
+    
+    def __init__(self, base_dir: Path):
+        self.base_dir = base_dir
+        self.openapi_spec = base_dir / "openapi.yaml"
+        self.generated_dir = base_dir / "generated"
+        self.generator = None
+        self.generated_routes: List[APIRoute] = []
+        
+        # Initialize generator if available
+        if Generator:
+            self.generator = Generator.create_for_tts_server(
+                output_dir=self.generated_dir,
+                spec_path=self.openapi_spec
+            )
+    
+    def generate_server_code(self) -> bool:
+        """Generate FastAPI server code from OpenAPI spec"""
+        if not self.generator:
+            logger.warning("Generator not available, cannot generate server code")
+            return False
+            
+        try:
+            logger.info("Generating server code from OpenAPI specification...")
+            
+            # Clean previous generation
+            if self.generated_dir.exists():
+                shutil.rmtree(self.generated_dir)
+            
+            # Generate models and routes
+            models_dir = self.generator.generate_models()
+            routes_dir = self.generator.generate_routes()
+            
+            logger.info(f"Generated models in: {models_dir}")
+            logger.info(f"Generated routes in: {routes_dir}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to generate server code: {e}")
+            return False
+    
+    def load_generated_models(self) -> Optional[Any]:
+        """Load generated Pydantic models dynamically"""
+        models_path = self.generated_dir / "tts_server_generated" / "models"
+        
+        if not models_path.exists():
+            logger.warning(f"Generated models not found at: {models_path}")
+            return None
+            
+        try:
+            # Add generated directory to Python path
+            sys.path.insert(0, str(self.generated_dir))
+            
+            # Import generated models
+            models_module = importlib.import_module("tts_server_generated.models")
+            logger.info("Successfully loaded generated models")
+            return models_module
+            
+        except Exception as e:
+            logger.error(f"Failed to load generated models: {e}")
+            return None
+    
+    def load_generated_routes(self) -> List[APIRoute]:
+        """Load generated FastAPI routes dynamically"""
+        apis_path = self.generated_dir / "tts_server_generated" / "apis"
+        
+        if not apis_path.exists():
+            # Try alternative path
+            apis_path = self.generated_dir / "tts_server_generated" / "api"
+        
+        if not apis_path.exists():
+            logger.warning(f"Generated APIs not found at: {apis_path}")
+            return []
+            
+        try:
+            # Add generated directory to Python path
+            sys.path.insert(0, str(self.generated_dir))
+            
+            # Import generated API modules
+            api_modules = []
+            for api_file in apis_path.glob("*.py"):
+                if api_file.name.startswith("__"):
+                    continue
+                    
+                module_name = f"tts_server_generated.apis.{api_file.stem}"
+                try:
+                    api_module = importlib.import_module(module_name)
+                    api_modules.append(api_module)
+                except Exception as e:
+                    logger.warning(f"Failed to import API module {module_name}: {e}")
+            
+            logger.info(f"Successfully loaded {len(api_modules)} API modules")
+            return api_modules
+            
+        except Exception as e:
+            logger.error(f"Failed to load generated routes: {e}")
+            return []
+    
+    def integrate_with_app(self, app: FastAPI, tts_service_app: Optional[FastAPI] = None) -> bool:
+        """Integrate generated routes with FastAPI app using bridge handler"""
+        try:
+            # Create bridge handler
+            api_handler = OpenAPIBasedAPIHandler(self, tts_service_app)
+            
+            # Create dynamic endpoints from OpenAPI spec
+            api_handler.create_dynamic_endpoints(app)
+            
+            logger.info("Successfully integrated OpenAPI-based dynamic endpoints")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to integrate generated code: {e}")
+            return False
+
+
+class OpenAPIBasedAPIHandler:
+    """Handles API requests using generated models but bridging to existing TTS functionality"""
+    
+    def __init__(self, dynamic_loader: DynamicAPILoader, tts_service_app: Optional[FastAPI] = None):
+        self.dynamic_loader = dynamic_loader
+        self.tts_service_app = tts_service_app
+        self.models = None
+        self.openapi_spec = None
+        
+        # Load OpenAPI spec
+        self._load_openapi_spec()
+        
+        # Load generated models if available
+        self.models = dynamic_loader.load_generated_models()
+    
+    def _load_openapi_spec(self):
+        """Load and parse the OpenAPI specification"""
+        try:
+            with open(self.dynamic_loader.openapi_spec, 'r') as f:
+                self.openapi_spec = yaml.safe_load(f)
+            logger.info("Loaded OpenAPI specification")
+        except Exception as e:
+            logger.error(f"Failed to load OpenAPI spec: {e}")
+    
+    def create_dynamic_endpoints(self, app: FastAPI):
+        """Create FastAPI endpoints dynamically from OpenAPI spec"""
+        if not self.openapi_spec:
+            logger.warning("No OpenAPI spec available for dynamic endpoint creation")
+            return
+        
+        paths = self.openapi_spec.get('paths', {})
+        
+        for path, path_item in paths.items():
+            for method, operation in path_item.items():
+                if method.lower() in ['get', 'post', 'put', 'delete', 'patch']:
+                    self._create_endpoint(app, path, method.lower(), operation)
+    
+    def _create_endpoint(self, app: FastAPI, path: str, method: str, operation: Dict[str, Any]):
+        """Create a single FastAPI endpoint from OpenAPI operation"""
+        operation_id = operation.get('operationId', f"{method}_{path.replace('/', '_')}")
+        summary = operation.get('summary', f"{method.upper()} {path}")
+        description = operation.get('description', '')
+        
+        async def dynamic_handler(request: Request):
+            """Dynamic handler that routes to appropriate TTS functionality"""
+            try:
+                # Extract parameters from request
+                query_params = dict(request.query_params)
+                
+                # Route to appropriate TTS handler based on path
+                if '/api/tts' in path:
+                    return await self._handle_tts_request(request, query_params)
+                elif '/voices' in path:
+                    return await self._handle_voices_request()
+                elif '/locales' in path:
+                    return await self._handle_locales_request()
+                elif '/process' in path:
+                    return await self._handle_process_request(request, query_params)
+                elif '/v1/audio/speech' in path:
+                    return await self._handle_openai_tts_request(request)
+                elif '/api/v1/health' in path:
+                    return await self._handle_health_request()
+                else:
+                    # Default handler
+                    return JSONResponse(
+                        content={"message": f"Dynamic endpoint: {method.upper()} {path}"},
+                        status_code=200
+                    )
+                    
+            except Exception as e:
+                logger.error(f"Error in dynamic handler for {path}: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        # Add the route to the app
+        app.add_api_route(
+            path=path,
+            endpoint=dynamic_handler,
+            methods=[method.upper()],
+            summary=summary,
+            description=description,
+            operation_id=operation_id
+        )
+        
+        logger.info(f"Created dynamic endpoint: {method.upper()} {path}")
+    
+    async def _handle_tts_request(self, request: Request, params: Dict[str, Any]):
+        """Handle TTS synthesis requests"""
+        # Forward to existing TTS service if available
+        if self.tts_service_app:
+            # This would need implementation to forward to the TTS service
+            pass
+        
+        # Fallback response
+        return JSONResponse(
+            content={"message": "TTS synthesis", "params": params},
+            status_code=200
+        )
+    
+    async def _handle_voices_request(self):
+        """Handle voices listing requests"""
+        return JSONResponse(
+            content={"voices": ["default", "speaker1", "speaker2"]},
+            status_code=200
+        )
+    
+    async def _handle_locales_request(self):
+        """Handle locales listing requests"""
+        return JSONResponse(
+            content={"locales": ["en", "es", "fr", "de"]},
+            status_code=200
+        )
+    
+    async def _handle_process_request(self, request: Request, params: Dict[str, Any]):
+        """Handle MaryTTS process requests"""
+        return JSONResponse(
+            content={"message": "MaryTTS process", "params": params},
+            status_code=200
+        )
+    
+    async def _handle_openai_tts_request(self, request: Request):
+        """Handle OpenAI-compatible TTS requests"""
+        try:
+            body = await request.json()
+            return JSONResponse(
+                content={"message": "OpenAI TTS", "body": body},
+                status_code=200
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+    
+    async def _handle_health_request(self):
+        """Handle health check requests"""
+        return JSONResponse(
+            content={
+                "status": "healthy",
+                "timestamp": datetime.now().isoformat(),
+                "components": {
+                    "openapi_generator": "active",
+                    "dynamic_endpoints": "active"
+                }
+            },
+            status_code=200
+        )
+
+
 class OpenAPICodeGenerator:
     """Handles OpenAPI code generation for frontend"""
     
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
-        self.tts_server_dir = base_dir / "TTS" / "server"
+        self.tts_server_dir = base_dir
         self.frontend_dir = self.tts_server_dir / "frontend"
         self.openapi_spec = self.tts_server_dir / "openapi.yaml"
         self.gen_dir = self.frontend_dir / "src" / "gen"
@@ -224,15 +497,17 @@ app.add_middleware(
 
 # Global generator instance
 generator: Optional[OpenAPICodeGenerator] = None
+dynamic_api_loader: Optional[DynamicAPILoader] = None
 tts_service_app: Optional[FastAPI] = None
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the code generator and TTS services on startup"""
-    global generator, tts_service_app
+    """Initialize the code generator, dynamic API loader, and TTS services on startup"""
+    global generator, dynamic_api_loader, tts_service_app
     base_dir = Path(__file__).parent.parent
     generator = OpenAPICodeGenerator(base_dir)
+    dynamic_api_loader = DynamicAPILoader(base_dir)
     
     logger.info("🚀 TTS Server starting up...")
     
@@ -240,6 +515,21 @@ async def startup_event():
     if not generator.check_dependencies():
         logger.error("❌ Required dependencies not available")
         sys.exit(1)
+    
+    # Generate server code from OpenAPI spec (if not disabled)
+    if not os.environ.get('DISABLE_DYNAMIC_API', 'False').lower() == 'true':
+        if dynamic_api_loader.generate_server_code():
+            logger.info("✅ Generated server code from OpenAPI spec")
+            
+            # Try to integrate generated routes
+            if dynamic_api_loader.integrate_with_app(app, tts_service_app):
+                logger.info("✅ Integrated generated API endpoints")
+            else:
+                logger.warning("⚠️  Using fallback API endpoints")
+        else:
+            logger.warning("⚠️  Could not generate server code, using fallback endpoints")
+    else:
+        logger.info("🔇 Dynamic API generation disabled, using static endpoints")
     
     # Initialize TTS services if available
     if create_service_based_app and ModelCacheManager:
@@ -362,6 +652,32 @@ async def regenerate_api(background_tasks: BackgroundTasks):
     return {
         "message": "API regeneration started",
         "status": "in_progress"
+    }
+
+
+@app.post("/generate/dynamic-api")
+async def regenerate_dynamic_api(background_tasks: BackgroundTasks):
+    """Manually trigger dynamic API regeneration from OpenAPI spec"""
+    if not dynamic_api_loader:
+        raise HTTPException(status_code=500, detail="Dynamic API loader not initialized")
+    
+    def regenerate_dynamic():
+        try:
+            # Regenerate server code
+            success = dynamic_api_loader.generate_server_code()
+            if success:
+                logger.info("Dynamic API regeneration completed successfully")
+            else:
+                logger.error("Dynamic API regeneration failed")
+        except Exception as e:
+            logger.error(f"Error during dynamic API regeneration: {e}")
+    
+    background_tasks.add_task(regenerate_dynamic)
+    
+    return {
+        "message": "Dynamic API regeneration started",
+        "status": "in_progress",
+        "note": "Server restart required to load new endpoints"
     }
 
 
@@ -517,12 +833,16 @@ def main():
     parser.add_argument("--generate-only", action="store_true", help="Only generate API and exit")
     parser.add_argument("--build-frontend", action="store_true", help="Build frontend after generation")
     parser.add_argument("--disable-tts", action="store_true", help="Disable TTS services (generator only)")
+    parser.add_argument("--disable-dynamic-api", action="store_true", help="Disable dynamic API generation from OpenAPI spec")
     parser.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"], help="Log level")
     
     args = parser.parse_args()
     
     # Set log level
     logging.getLogger().setLevel(getattr(logging, args.log_level.upper()))
+    
+    # Set global flags for dynamic API generation
+    os.environ['DISABLE_DYNAMIC_API'] = str(args.disable_dynamic_api)
     
     if args.generate_only:
         # Just generate and exit

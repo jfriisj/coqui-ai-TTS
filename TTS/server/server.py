@@ -10,20 +10,14 @@ import os
 import sys
 import warnings
 import time
-import tempfile
 import uuid
-import queue
-import threading
-import atexit
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from urllib.parse import parse_qs
 from typing import Optional, Dict, Any, List, Union
 
 import torch
 import torchaudio
-import psutil
 
 try:
     from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Query, Header, Request, status
@@ -39,9 +33,9 @@ except ImportError as e:
 from TTS.api import TTS
 from TTS.utils.generic_utils import ConsoleFormatter, setup_logger
 from TTS.utils.manage import ModelManager
-from TTS.server.model_state import GlobalModelState, get_global_model_state
-from TTS.server.model_cache import ModelCacheManager
-from TTS.server.model_registry import ModelRegistry
+from TTS.server.services.model_state import get_global_model_state
+from TTS.server.services.model_cache import ModelCacheManager
+from TTS.server.services.model_registry import ModelRegistry
 
 logger = logging.getLogger(__name__)
 setup_logger("TTS", level=logging.INFO, stream=sys.stdout, formatter=ConsoleFormatter())
